@@ -3,10 +3,11 @@ import React, { useState } from "react";
 import TaskForm from "./TaskForm";
 import TaskList from "./TaskList";
 import CalendarView from "./CalendarView";
+import GoogleCalendarIntegration from "./GoogleCalendarIntegration";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Plus, ListChecks, Clock, ArrowUp, Calendar } from "lucide-react";
+import { Plus, ListChecks, Clock, ArrowUp, Calendar, Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -15,6 +16,7 @@ const Dashboard: React.FC = () => {
   const { tasks, topTasks, getRootTasks } = useTaskContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<"list" | "calendar">("list");
+  const [showCalendarIntegration, setShowCalendarIntegration] = useState(false);
   
   const rootTasks = getRootTasks();
   const completedTasksCount = 0; // In a real app, you'd compute this
@@ -75,21 +77,37 @@ const Dashboard: React.FC = () => {
         <div className="flex-1">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold">Today's Priorities</h2>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="shadow-sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Task
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                  <DialogTitle>Create New Task</DialogTitle>
-                </DialogHeader>
-                <TaskForm onSubmit={() => setIsDialogOpen(false)} />
-              </DialogContent>
-            </Dialog>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => setShowCalendarIntegration(!showCalendarIntegration)}
+                className="relative"
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="shadow-sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Task
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Task</DialogTitle>
+                  </DialogHeader>
+                  <TaskForm onSubmit={() => setIsDialogOpen(false)} />
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
+          
+          {showCalendarIntegration && (
+            <div className="mb-6">
+              <GoogleCalendarIntegration />
+            </div>
+          )}
           
           <Card className="bg-white rounded-lg shadow-sm border p-6 mb-8 hover:shadow-md transition-shadow">
             <CardHeader className="px-0 pt-0">

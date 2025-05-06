@@ -1,19 +1,55 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import { TaskWithPriority } from "@/types/task";
 import { Loader2 } from "lucide-react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableTaskItem } from "./SortableTaskItem";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 
 interface TaskListProps {
   tasks?: TaskWithPriority[];
   showScore?: boolean;
+  nestingLevel?: number;
+  parentId?: string | null;
 }
 
-const TaskList: React.FC<TaskListProps> = ({ tasks, showScore = true }) => {
-  const { tasks: allTasks, isLoading } = useTaskContext();
+const TaskList: React.FC<TaskListProps> = ({ 
+  tasks, 
+  showScore = true, 
+  nestingLevel = 0,
+  parentId = null
+}) => {
+  const { tasks: allTasks, isLoading, updateTaskOrder } = useTaskContext();
   
-  const tasksToRender = tasks || allTasks;
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  
+  const tasksToRender = tasks || allTasks.filter(task => task.parentId === parentId);
+  
+  // Sort tasks by priority score (highest first)
+  const sortedTasks = [...tasksToRender].sort((a, b) => b.priorityScore - a.priorityScore);
+  
+  // Handle drag end event
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const oldIndex = sortedTasks.findIndex(task => task.id === active.id);
+      const newIndex = sortedTasks.findIndex(task => task.id === over.id);
+      
+      const newOrder = arrayMove(sortedTasks, oldIndex, newIndex);
+      
+      // Update the order in the context
+      updateTaskOrder(newOrder, parentId);
+    }
+  };
   
   if (isLoading) {
     return (
@@ -41,15 +77,34 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, showScore = true }) => {
   }
   
   return (
-    <div className="space-y-4">
-      {tasksToRender.map((task) => (
-        <TaskCard 
-          key={task.id} 
-          task={task}
-          showScore={showScore} 
-        />
-      ))}
-    </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+      modifiers={[restrictToVerticalAxis]}
+    >
+      <SortableContext items={sortedTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-4" style={{ paddingLeft: nestingLevel > 0 ? `${nestingLevel * 16}px` : '0' }}>
+          {sortedTasks.map((task) => (
+            <div key={task.id}>
+              <SortableTaskItem id={task.id}>
+                <TaskCard task={task} showScore={showScore} />
+              </SortableTaskItem>
+              
+              {/* Render child tasks recursively if they exist */}
+              {task.children && task.children.length > 0 && (
+                <TaskList
+                  tasks={task.children as TaskWithPriority[]}
+                  showScore={showScore}
+                  nestingLevel={nestingLevel + 1}
+                  parentId={task.id}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 };
 

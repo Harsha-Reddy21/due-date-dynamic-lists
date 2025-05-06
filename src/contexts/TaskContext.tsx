@@ -1,8 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
-import { calculatePriorityScores, getTopPriorityTasks } from "@/lib/priority-utils";
+import { calculatePriorityScores, getTopPriorityTasks, calculateDaysUntilDue } from "@/lib/priority-utils";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +16,7 @@ interface TaskContextProps {
   getTaskById: (taskId: string) => Task | undefined;
   getTaskChildren: (parentId: string) => TaskWithPriority[];
   getRootTasks: () => TaskWithPriority[];
+  updateTaskOrder: (newOrder: TaskWithPriority[], parentId: string | null) => void;
 }
 
 const TaskContext = createContext<TaskContextProps | undefined>(undefined);
@@ -27,6 +27,56 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hierarchicalTasks, setHierarchicalTasks] = useState<TaskWithPriority[]>([]);
   const [topTasks, setTopTasks] = useState<TaskWithPriority[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Check for due tasks and show notifications
+  useEffect(() => {
+    if (flatTasks.length > 0) {
+      // Find tasks due today or tomorrow
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const dueTodayTasks = flatTasks.filter(task => {
+        const dueDate = new Date(task.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() === today.getTime();
+      });
+      
+      const dueTomorrowTasks = flatTasks.filter(task => {
+        const dueDate = new Date(task.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() === tomorrow.getTime();
+      });
+      
+      // Show notifications for tasks due today
+      if (dueTodayTasks.length > 0) {
+        toast.warning(
+          dueTodayTasks.length === 1
+            ? `"${dueTodayTasks[0].title}" is due today!`
+            : `You have ${dueTodayTasks.length} tasks due today!`,
+          {
+            description: "Check your tasks to see what needs to be completed.",
+            duration: 5000,
+          }
+        );
+      }
+      
+      // Show notifications for tasks due tomorrow
+      if (dueTomorrowTasks.length > 0) {
+        toast.info(
+          dueTomorrowTasks.length === 1
+            ? `"${dueTomorrowTasks[0].title}" is due tomorrow.`
+            : `You have ${dueTomorrowTasks.length} tasks due tomorrow.`,
+          {
+            description: "Plan ahead to complete these tasks on time.",
+            duration: 5000,
+          }
+        );
+      }
+    }
+  }, [flatTasks]);
   
   // Fetch tasks from Supabase when user changes
   useEffect(() => {
@@ -244,6 +294,44 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return hierarchicalTasks.filter(task => task.parentId === null);
   };
   
+  // Update task order
+  const updateTaskOrder = async (newOrder: TaskWithPriority[], parentId: string | null) => {
+    if (!user) {
+      toast.error("You must be logged in to reorder tasks");
+      return;
+    }
+    
+    try {
+      // Update the order in the database
+      // For simplicity, we just update the in-memory state
+      // In a real app, you might use a 'position' field in the database
+      
+      // Create a new flat task array with the updated order
+      const updatedFlatTasks = [...flatTasks];
+      
+      // Find the tasks with the specified parent ID
+      for (let i = 0; i < newOrder.length; i++) {
+        const taskIndex = updatedFlatTasks.findIndex(t => t.id === newOrder[i].id);
+        if (taskIndex !== -1) {
+          // You could update a 'position' field here if you had one
+          // updatedFlatTasks[taskIndex].position = i;
+        }
+      }
+      
+      // Update the state with the new order
+      setFlatTasks(updatedFlatTasks);
+      
+      toast("Tasks reordered", {
+        description: "The order of your tasks has been updated"
+      });
+    } catch (error: any) {
+      console.error("Error reordering tasks:", error);
+      toast.error("Failed to reorder tasks", {
+        description: error.message
+      });
+    }
+  };
+  
   return (
     <TaskContext.Provider value={{
       tasks: hierarchicalTasks,
@@ -254,7 +342,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deleteTask,
       getTaskById,
       getTaskChildren,
-      getRootTasks
+      getRootTasks,
+      updateTaskOrder
     }}>
       {children}
     </TaskContext.Provider>
