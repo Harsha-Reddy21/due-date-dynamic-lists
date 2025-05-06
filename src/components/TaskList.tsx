@@ -3,11 +3,15 @@ import React, { useEffect } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import { TaskWithPriority } from "@/types/task";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { SortableTaskItem } from "./SortableTaskItem";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import TaskForm from "./TaskForm";
+import { useState } from "react";
 
 interface TaskListProps {
   tasks?: TaskWithPriority[];
@@ -23,6 +27,7 @@ const TaskList: React.FC<TaskListProps> = ({
   parentId = null
 }) => {
   const { tasks: allTasks, isLoading, updateTaskOrder } = useTaskContext();
+  const [isAddSubtaskDialogOpen, setIsAddSubtaskDialogOpen] = useState<string | null>(null);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -49,6 +54,16 @@ const TaskList: React.FC<TaskListProps> = ({
       // Update the order in the context
       updateTaskOrder(newOrder, parentId);
     }
+  };
+  
+  // Handle add subtask
+  const handleAddSubtask = (taskId: string) => {
+    setIsAddSubtaskDialogOpen(taskId);
+  };
+  
+  // Handle closing the dialog
+  const handleDialogClose = () => {
+    setIsAddSubtaskDialogOpen(null);
   };
   
   if (isLoading) {
@@ -88,8 +103,22 @@ const TaskList: React.FC<TaskListProps> = ({
           {sortedTasks.map((task) => (
             <div key={task.id}>
               <SortableTaskItem id={task.id}>
-                <TaskCard task={task} showScore={showScore} />
+                <TaskCard 
+                  task={task} 
+                  showScore={showScore} 
+                  onAddSubtask={() => handleAddSubtask(task.id)} 
+                />
               </SortableTaskItem>
+              
+              {/* Dialog for adding a subtask */}
+              <Dialog open={isAddSubtaskDialogOpen === task.id} onOpenChange={handleDialogClose}>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Add Subtask to "{task.title}"</DialogTitle>
+                  </DialogHeader>
+                  <TaskForm onSubmit={handleDialogClose} parentId={task.id} />
+                </DialogContent>
+              </Dialog>
               
               {/* Render child tasks recursively if they exist */}
               {task.children && task.children.length > 0 && (
