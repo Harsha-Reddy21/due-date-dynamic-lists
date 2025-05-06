@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { BellRing, HelpCircle, Menu } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { Badge } from "./ui/badge";
+import UserMenu from "./UserMenu";
+import { Link } from "react-router-dom";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,9 +21,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <button className="p-2 rounded-full hover:bg-gray-100 lg:hidden">
               <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
-              TaskPal
-            </h1>
+            <Link to="/">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+                TaskPal
+              </h1>
+            </Link>
             <Badge className="ml-2 bg-gradient-to-r from-blue-200 to-purple-200 text-xs px-2 py-0.5 rounded-full text-purple-800 font-medium border-0">
               BETA
             </Badge>
@@ -33,10 +37,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 2
               </span>
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 hidden md:flex">
               <HelpCircle className="h-4 w-4" />
               Need help?
             </Button>
+            <UserMenu />
           </div>
         </div>
       </header>

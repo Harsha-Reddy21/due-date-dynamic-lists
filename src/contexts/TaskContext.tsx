@@ -4,9 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
 import { calculatePriorityScores, getTopPriorityTasks } from "@/lib/priority-utils";
 import { toast } from "@/components/ui/sonner";
-
-// Mock user ID (will be replaced with auth)
-const MOCK_USER_ID = "user-1";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TaskContextProps {
   tasks: TaskWithPriority[];
@@ -22,110 +21,74 @@ interface TaskContextProps {
 
 const TaskContext = createContext<TaskContextProps | undefined>(undefined);
 
-// Mock initial data
-const initialTasks: Task[] = [
-  {
-    id: "task-1",
-    userId: MOCK_USER_ID,
-    parentId: null,
-    title: "Launch Marketing Campaign",
-    description: "Execute the Q2 marketing campaign across all channels",
-    dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
-    weight: 5,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "task-2",
-    userId: MOCK_USER_ID,
-    parentId: "task-1",
-    title: "Write Social Media Copy",
-    description: "Create engaging copy for Twitter, LinkedIn and Facebook",
-    dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day from now
-    weight: 4,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "task-3",
-    userId: MOCK_USER_ID,
-    parentId: "task-1",
-    title: "Design Banner Ads",
-    description: "Create banner ads for the campaign in various sizes",
-    dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
-    weight: 3,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "task-4",
-    userId: MOCK_USER_ID,
-    parentId: null,
-    title: "Team Meeting Preparation",
-    description: "Prepare agenda and materials for the weekly team meeting",
-    dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day from now
-    weight: 4,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "task-5",
-    userId: MOCK_USER_ID,
-    parentId: null,
-    title: "Quarterly Budget Review",
-    description: "Review and adjust departmental budget for Q3",
-    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-    weight: 5,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "task-6",
-    userId: MOCK_USER_ID,
-    parentId: null,
-    title: "Update Website Content",
-    description: "Refresh product descriptions and team bios",
-    dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
-    weight: 2,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-];
-
-// Build hierarchical task structure
-const buildTaskHierarchy = (taskList: Task[]): Task[] => {
-  const taskMap = new Map<string, Task>();
-  const rootTasks: Task[] = [];
-  
-  // First pass: map all tasks by ID
-  taskList.forEach(task => {
-    taskMap.set(task.id, { ...task, children: [] });
-  });
-  
-  // Second pass: build hierarchy
-  taskList.forEach(task => {
-    const taskWithChildren = taskMap.get(task.id);
-    
-    if (task.parentId && taskMap.has(task.parentId)) {
-      // Add to parent's children
-      const parent = taskMap.get(task.parentId);
-      if (parent && parent.children) {
-        parent.children.push(taskWithChildren!);
-      }
-    } else {
-      // Root level task
-      rootTasks.push(taskWithChildren!);
-    }
-  });
-  
-  return rootTasks;
-};
-
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [flatTasks, setFlatTasks] = useState<Task[]>(initialTasks);
+  const { user } = useAuth();
+  const [flatTasks, setFlatTasks] = useState<Task[]>([]);
   const [hierarchicalTasks, setHierarchicalTasks] = useState<TaskWithPriority[]>([]);
   const [topTasks, setTopTasks] = useState<TaskWithPriority[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Fetch tasks from Supabase when user changes
+  useEffect(() => {
+    if (!user) {
+      // If no authenticated user, reset tasks and set loading to false
+      setFlatTasks([]);
+      setHierarchicalTasks([]);
+      setTopTasks([]);
+      setIsLoading(false);
+      return;
+    }
+    
+    const fetchTasks = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (error) {
+          throw error;
+        }
+        
+        // Convert the database format to our app's Task format
+        const formattedTasks: Task[] = data.map(task => ({
+          id: task.id,
+          userId: task.user_id,
+          parentId: task.parent_id,
+          title: task.title,
+          description: task.description || "",
+          dueDate: task.due_date,
+          weight: task.weight as Weight,
+          createdAt: task.created_at,
+          updatedAt: task.updated_at,
+        }));
+        
+        setFlatTasks(formattedTasks);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        toast.error("Failed to load tasks");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchTasks();
+    
+    // Subscribe to changes
+    const tasksSubscription = supabase
+      .channel('public:tasks')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public',
+        table: 'tasks'
+      }, fetchTasks)
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(tasksSubscription);
+    };
+  }, [user]);
   
   // Process tasks whenever flat task list changes
   useEffect(() => {
@@ -133,69 +96,135 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const withPriority = calculatePriorityScores(processedTasks);
     setHierarchicalTasks(withPriority);
     setTopTasks(getTopPriorityTasks(withPriority, 5));
-    setIsLoading(false);
   }, [flatTasks]);
   
-  // Add new task
-  const addTask = (task: Omit<Task, "id" | "userId" | "createdAt" | "updatedAt" | "priorityScore">) => {
-    const now = new Date().toISOString();
-    const newTask: Task = {
-      id: uuidv4(),
-      userId: MOCK_USER_ID,
-      createdAt: now,
-      updatedAt: now,
-      ...task
-    };
+  // Build hierarchical task structure
+  const buildTaskHierarchy = (taskList: Task[]): Task[] => {
+    const taskMap = new Map<string, Task>();
+    const rootTasks: Task[] = [];
     
-    setFlatTasks(prevTasks => [...prevTasks, newTask]);
-    toast("Task created", {
-      description: `"${task.title}" has been added to your tasks`
+    // First pass: map all tasks by ID
+    taskList.forEach(task => {
+      taskMap.set(task.id, { ...task, children: [] });
     });
+    
+    // Second pass: build hierarchy
+    taskList.forEach(task => {
+      const taskWithChildren = taskMap.get(task.id);
+      
+      if (task.parentId && taskMap.has(task.parentId)) {
+        // Add to parent's children
+        const parent = taskMap.get(task.parentId);
+        if (parent && parent.children) {
+          parent.children.push(taskWithChildren!);
+        }
+      } else {
+        // Root level task
+        rootTasks.push(taskWithChildren!);
+      }
+    });
+    
+    return rootTasks;
+  };
+  
+  // Add new task
+  const addTask = async (task: Omit<Task, "id" | "userId" | "createdAt" | "updatedAt" | "priorityScore">) => {
+    if (!user) {
+      toast.error("You must be logged in to add tasks");
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([
+          {
+            user_id: user.id,
+            parent_id: task.parentId,
+            title: task.title,
+            description: task.description,
+            due_date: task.dueDate,
+            weight: task.weight
+          }
+        ])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      toast("Task created", {
+        description: `"${task.title}" has been added to your tasks`
+      });
+    } catch (error: any) {
+      console.error("Error adding task:", error);
+      toast.error("Failed to create task", {
+        description: error.message
+      });
+    }
   };
   
   // Update task
-  const updateTask = (taskId: string, updates: Partial<Task>) => {
-    setFlatTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === taskId 
-          ? { 
-              ...task, 
-              ...updates, 
-              updatedAt: new Date().toISOString() 
-            } 
-          : task
-      )
-    );
+  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+    if (!user) {
+      toast.error("You must be logged in to update tasks");
+      return;
+    }
     
-    toast("Task updated", {
-      description: "Your task has been updated successfully"
-    });
+    try {
+      // Convert from our app's Task format to database format
+      const dbUpdates: any = {};
+      
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+      if (updates.weight !== undefined) dbUpdates.weight = updates.weight;
+      if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId;
+      
+      const { error } = await supabase
+        .from('tasks')
+        .update(dbUpdates)
+        .eq('id', taskId);
+      
+      if (error) throw error;
+      
+      toast("Task updated", {
+        description: "Your task has been updated successfully"
+      });
+    } catch (error: any) {
+      console.error("Error updating task:", error);
+      toast.error("Failed to update task", {
+        description: error.message
+      });
+    }
   };
   
   // Delete task (and its children)
-  const deleteTask = (taskId: string) => {
+  const deleteTask = async (taskId: string) => {
+    if (!user) {
+      toast.error("You must be logged in to delete tasks");
+      return;
+    }
+    
     // First find the task to be deleted for notification
     const taskToDelete = flatTasks.find(t => t.id === taskId);
     
-    // Find all child task IDs (recursive)
-    const findAllChildIds = (parentId: string): string[] => {
-      const childTasks = flatTasks.filter(t => t.parentId === parentId);
-      return [
-        ...childTasks.map(t => t.id),
-        ...childTasks.flatMap(t => findAllChildIds(t.id))
-      ];
-    };
-    
-    const childIds = findAllChildIds(taskId);
-    const allIdsToDelete = [taskId, ...childIds];
-    
-    setFlatTasks(prevTasks => 
-      prevTasks.filter(task => !allIdsToDelete.includes(task.id))
-    );
-    
-    if (taskToDelete) {
-      toast("Task deleted", {
-        description: `"${taskToDelete.title}" and its subtasks have been removed`
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+      
+      if (error) throw error;
+      
+      if (taskToDelete) {
+        toast("Task deleted", {
+          description: `"${taskToDelete.title}" and its subtasks have been removed`
+        });
+      }
+    } catch (error: any) {
+      console.error("Error deleting task:", error);
+      toast.error("Failed to delete task", {
+        description: error.message
       });
     }
   };
