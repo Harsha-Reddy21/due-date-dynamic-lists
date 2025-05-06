@@ -2,16 +2,19 @@
 import React, { useState } from "react";
 import TaskForm from "./TaskForm";
 import TaskList from "./TaskList";
+import CalendarView from "./CalendarView";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Plus, ListChecks, Clock, ArrowUp } from "lucide-react";
+import { Plus, ListChecks, Clock, ArrowUp, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 const Dashboard: React.FC = () => {
   const { tasks, topTasks, getRootTasks } = useTaskContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"list" | "calendar">("list");
   
   const rootTasks = getRootTasks();
   const completedTasksCount = 0; // In a real app, you'd compute this
@@ -104,16 +107,33 @@ const Dashboard: React.FC = () => {
           
           <Card className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
             <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <span className="bg-secondary/20 p-1.5 rounded-md mr-2">
-                  <ListChecks className="h-4 w-4 text-secondary-foreground"/>
-                </span>
-                All Tasks
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-lg font-semibold flex items-center">
+                  <span className="bg-secondary/20 p-1.5 rounded-md mr-2">
+                    <ListChecks className="h-4 w-4 text-secondary-foreground"/>
+                  </span>
+                  All Tasks
+                </CardTitle>
+                <Tabs value={activeView} onValueChange={(value) => setActiveView(value as "list" | "calendar")}>
+                  <TabsList>
+                    <TabsTrigger value="list" className="flex items-center gap-1">
+                      <ListChecks className="h-3.5 w-3.5" /> List
+                    </TabsTrigger>
+                    <TabsTrigger value="calendar" className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" /> Calendar
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </CardHeader>
             <Separator className="my-4" />
             <CardContent className="px-0 pb-0">
-              <TaskList tasks={rootTasks} showScore={true} />
+              <TabsContent value="list" className="mt-0">
+                <TaskList tasks={rootTasks} showScore={true} />
+              </TabsContent>
+              <TabsContent value="calendar" className="mt-0">
+                <CalendarView />
+              </TabsContent>
             </CardContent>
           </Card>
         </div>
