@@ -1,34 +1,30 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
-import { Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { toast } from './ui/sonner';
 import { useTaskContext } from '@/contexts/TaskContext';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface GoogleTokenResponse {
-  access_token: string;
-  expires_in: number;
-  refresh_token?: string;
-  scope: string;
-  token_type: string;
-}
+import { Progress } from './ui/progress';
 
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
-  const CLIENT_ID = ''; // You need to replace this with your Google API client ID
+  // Using a sample client ID - in a production app you would use a real one
+  const CLIENT_ID = '123456789012-example12345example12345.apps.googleusercontent.com';
   const REDIRECT_URI = window.location.origin;
   const SCOPES = 'https://www.googleapis.com/auth/calendar';
 
   // Check if user is already authenticated with Google
-  React.useEffect(() => {
+  useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem('google_calendar_token');
       if (token) {
@@ -48,7 +44,7 @@ const GoogleCalendarIntegration = () => {
   }, []);
 
   // Handle OAuth redirect
-  React.useEffect(() => {
+  useEffect(() => {
     const handleOAuthRedirect = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -61,8 +57,9 @@ const GoogleCalendarIntegration = () => {
         setError(null);
         
         try {
-          // In a real app, this exchange would happen in a secure backend
-          // For demo purposes, we're just simulating success
+          // Simulating token exchange - in a real app this would be a secure backend call
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
           toast.success("Google Calendar connected!");
           
           // Store mock token
@@ -112,15 +109,33 @@ const GoogleCalendarIntegration = () => {
       return;
     }
     
-    toast.promise(
-      // This would be an actual API call in a real app
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-      {
-        loading: "Syncing tasks to Google Calendar...",
-        success: "Tasks synced to Google Calendar!",
-        error: "Failed to sync tasks. Please try again.",
-      }
-    );
+    setIsSyncing(true);
+    setSyncProgress(0);
+    
+    // Simulate progress updates
+    const interval = setInterval(() => {
+      setSyncProgress(prev => {
+        const newProgress = prev + 10;
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            setIsSyncing(false);
+            toast.success("Tasks synced to Google Calendar!");
+          }, 500);
+          return 100;
+        }
+        return newProgress;
+      });
+    }, 300);
+  };
+
+  const handleRefreshCalendar = () => {
+    toast.info("Refreshing calendar data...");
+    
+    // Simulate fetching calendar events
+    setTimeout(() => {
+      toast.success("Calendar refreshed successfully");
+    }, 1500);
   };
 
   return (
@@ -144,32 +159,50 @@ const GoogleCalendarIntegration = () => {
         )}
         
         {isConnected ? (
-          <Alert className="mb-4 bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-600">Connected</AlertTitle>
-            <AlertDescription className="text-green-700">
-              Your account is connected to Google Calendar.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <Alert className="mb-4 bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-600">Connected</AlertTitle>
+              <AlertDescription className="text-green-700">
+                Your account is connected to Google Calendar. You can now sync your tasks.
+              </AlertDescription>
+            </Alert>
+            
+            {isSyncing && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Syncing tasks...</span>
+                  <span>{syncProgress}%</span>
+                </div>
+                <Progress value={syncProgress} className="h-2" />
+              </div>
+            )}
+          </div>
         ) : (
           <p className="text-muted-foreground mb-4">
             Connect your Google Calendar to automatically sync your tasks and receive notifications.
           </p>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter className="flex justify-between flex-wrap gap-2">
         {isConnected ? (
           <>
-            <Button variant="outline" onClick={handleDisconnect}>
-              Disconnect
-            </Button>
-            <Button onClick={handleSyncTasks}>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleDisconnect}>
+                Disconnect
+              </Button>
+              <Button variant="outline" onClick={handleRefreshCalendar}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
+            </div>
+            <Button onClick={handleSyncTasks} disabled={isSyncing}>
               <Calendar className="mr-2 h-4 w-4" />
-              Sync Tasks
+              {isSyncing ? `Syncing (${syncProgress}%)` : "Sync Tasks"}
             </Button>
           </>
         ) : (
-          <Button onClick={handleConnect} disabled={isConnecting || !CLIENT_ID}>
+          <Button onClick={handleConnect} disabled={isConnecting}>
             <Calendar className="mr-2 h-4 w-4" />
             {isConnecting ? "Connecting..." : "Connect Google Calendar"}
           </Button>

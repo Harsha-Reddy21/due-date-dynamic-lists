@@ -19,7 +19,7 @@ const Dashboard: React.FC = () => {
   const [showCalendarIntegration, setShowCalendarIntegration] = useState(false);
   
   const rootTasks = getRootTasks();
-  const completedTasksCount = 0; // In a real app, you'd compute this
+  const completedTasksCount = tasks.filter(task => task.completed).length;
   
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -72,42 +72,43 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
       
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Priority Tasks Section */}
-        <div className="flex-1">
+      <div className="flex flex-col gap-8">
+        {/* Google Calendar Integration */}
+        <div>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold">Today's Priorities</h2>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={() => setShowCalendarIntegration(!showCalendarIntegration)}
-                className="relative"
-              >
-                <Bell className="h-4 w-4" />
-              </Button>
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="shadow-sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Task
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Task</DialogTitle>
-                  </DialogHeader>
-                  <TaskForm onSubmit={() => setIsDialogOpen(false)} />
-                </DialogContent>
-              </Dialog>
-            </div>
+            <h2 className="text-2xl font-semibold">Google Calendar</h2>
+            <Button 
+              variant={showCalendarIntegration ? "outline" : "default"}
+              onClick={() => setShowCalendarIntegration(!showCalendarIntegration)}
+            >
+              {showCalendarIntegration ? "Hide Integration" : "Connect Calendar"}
+            </Button>
           </div>
           
           {showCalendarIntegration && (
-            <div className="mb-6">
-              <GoogleCalendarIntegration />
-            </div>
+            <GoogleCalendarIntegration />
           )}
+        </div>
+        
+        {/* Priority Tasks Section */}
+        <div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold">Today's Priorities</h2>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="shadow-sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Task
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Task</DialogTitle>
+                </DialogHeader>
+                <TaskForm onSubmit={() => setIsDialogOpen(false)} />
+              </DialogContent>
+            </Dialog>
+          </div>
           
           <Card className="bg-white rounded-lg shadow-sm border p-6 mb-8 hover:shadow-md transition-shadow">
             <CardHeader className="px-0 pt-0">
@@ -122,7 +123,10 @@ const Dashboard: React.FC = () => {
               <TaskList tasks={topTasks} showScore={true} />
             </CardContent>
           </Card>
-          
+        </div>
+        
+        {/* All Tasks Section */}
+        <div>
           <Card className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
             <CardHeader className="px-0 pt-0">
               <div className="flex justify-between items-center">
@@ -154,18 +158,6 @@ const Dashboard: React.FC = () => {
                   <CalendarView />
                 </TabsContent>
               </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-        
-        {/* Add Task Form Section */}
-        <div className="w-full lg:w-96">
-          <Card className="bg-white rounded-lg sticky top-24 shadow-sm border p-6 hover:shadow-md transition-shadow">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-lg font-semibold">Add New Task</CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 pb-0">
-              <TaskForm />
             </CardContent>
           </Card>
         </div>

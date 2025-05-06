@@ -1,26 +1,71 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { BellRing, HelpCircle, Menu } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { Badge } from "./ui/badge";
 import UserMenu from "./UserMenu";
 import { Link } from "react-router-dom";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { toast } from "./ui/sonner";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const handleNotificationClick = () => {
+    toast("Notifications", {
+      description: "You have 2 unread notifications",
+    });
+  };
+  
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b py-4 sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded-full hover:bg-gray-100 lg:hidden">
-              <Menu className="h-5 w-5" />
-            </button>
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button className="p-2 rounded-full hover:bg-gray-100 lg:hidden" variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left">
+                <SheetHeader>
+                  <SheetTitle>TaskPal Menu</SheetTitle>
+                  <SheetDescription>
+                    Quick access to your task management tools
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="flex flex-col gap-4 mt-6">
+                  <Link to="/" className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md" onClick={() => setIsMobileMenuOpen(false)}>
+                    Dashboard
+                  </Link>
+                  <Link to="/auth" className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md" onClick={() => setIsMobileMenuOpen(false)}>
+                    Authentication
+                  </Link>
+                  <Button variant="ghost" className="justify-start" onClick={() => { handleNotificationClick(); setIsMobileMenuOpen(false); }}>
+                    <BellRing className="h-4 w-4 mr-2" />
+                    Notifications
+                  </Button>
+                  <Button variant="ghost" className="justify-start gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+                    <HelpCircle className="h-4 w-4" />
+                    Help
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
             <Link to="/">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
                 TaskPal
@@ -31,13 +76,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Badge>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative"
+              onClick={handleNotificationClick}
+            >
               <BellRing className="h-5 w-5" />
               <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
                 2
               </span>
             </Button>
-            <Button variant="outline" className="gap-2 hidden md:flex">
+            <Button 
+              variant="outline" 
+              className="gap-2 hidden md:flex"
+              onClick={() => {
+                toast("Help & Support", {
+                  description: "Our support team will be available shortly.",
+                })
+              }}
+            >
               <HelpCircle className="h-4 w-4" />
               Need help?
             </Button>
