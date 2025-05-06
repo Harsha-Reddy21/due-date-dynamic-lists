@@ -82,7 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string, username: string) => {
+  const signUp = async (email: string, password: string, username: string): Promise<void> => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -99,8 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success("Account created", {
         description: "Please check your email to verify your account"
       });
-      
-      return data;
     } catch (error: any) {
       toast.error("Sign up failed", {
         description: error.message
@@ -109,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string): Promise<void> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -123,8 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.success("Signed in successfully", {
         description: `Welcome back${profile?.username ? ', ' + profile.username : ''}!`
       });
-      
-      return data;
     } catch (error: any) {
       toast.error("Sign in failed", {
         description: error.message
