@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import { AuthProvider } from "./contexts/AuthContext";
+import { TaskProvider } from "./contexts/TaskContext";
 import AuthRoute from "./components/AuthRoute";
 
 // Create a client
@@ -25,18 +26,20 @@ const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<AuthRoute><Index /></AuthRoute>} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <Toaster />
-            <Sonner />
-          </TooltipProvider>
-        </QueryClientProvider>
+        <TaskProvider>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/" element={<AuthRoute><Index /></AuthRoute>} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+              <Toaster />
+              <Sonner />
+            </TooltipProvider>
+          </QueryClientProvider>
+        </TaskProvider>
       </AuthProvider>
     </BrowserRouter>
   );
