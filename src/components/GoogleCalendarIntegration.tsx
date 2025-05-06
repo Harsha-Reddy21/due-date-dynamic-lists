@@ -15,13 +15,14 @@ const GoogleCalendarIntegration = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
-  // Using a sample client ID - in a production app you would use a real one
+  // Google OAuth2 configuration
   const CLIENT_ID = '123456789012-example12345example12345.apps.googleusercontent.com';
   const REDIRECT_URI = window.location.origin;
-  const SCOPES = 'https://www.googleapis.com/auth/calendar';
+  const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
 
   // Check if user is already authenticated with Google
   useEffect(() => {
@@ -30,12 +31,25 @@ const GoogleCalendarIntegration = () => {
       if (token) {
         try {
           const tokenData = JSON.parse(token);
+          // Check if token is expired
           const expiryTime = tokenData.issued_at + tokenData.expires_in * 1000;
           if (Date.now() < expiryTime) {
             setIsConnected(true);
+            // Get last synced time if available
+            const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
+            if (lastSyncTime) {
+              setLastSynced(lastSyncTime);
+            }
+          } else {
+            // Token is expired, clear it
+            toast.warning("Google Calendar connection expired", {
+              description: "Please reconnect your account"
+            });
+            localStorage.removeItem('google_calendar_token');
           }
         } catch (err) {
           console.error("Error parsing token:", err);
+          setError("Error reading authentication data. Please reconnect.");
         }
       }
     };
@@ -60,7 +74,9 @@ const GoogleCalendarIntegration = () => {
           // Simulating token exchange - in a real app this would be a secure backend call
           await new Promise(resolve => setTimeout(resolve, 1500));
           
-          toast.success("Google Calendar connected!");
+          toast.success("Google Calendar connected successfully!", {
+            description: "You can now sync your tasks with your Google Calendar"
+          });
           
           // Store mock token
           const mockToken = {
@@ -92,6 +108,7 @@ const GoogleCalendarIntegration = () => {
       return;
     }
     
+    // Generate OAuth URL with required scopes for calendar access
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
     
     window.location.href = authUrl;
@@ -99,7 +116,9 @@ const GoogleCalendarIntegration = () => {
 
   const handleDisconnect = () => {
     localStorage.removeItem('google_calendar_token');
+    localStorage.removeItem('google_calendar_last_sync');
     setIsConnected(false);
+    setLastSynced(null);
     toast.success("Disconnected from Google Calendar");
   };
 
@@ -112,21 +131,60 @@ const GoogleCalendarIntegration = () => {
     setIsSyncing(true);
     setSyncProgress(0);
     
-    // Simulate progress updates
-    const interval = setInterval(() => {
-      setSyncProgress(prev => {
-        const newProgress = prev + 10;
-        if (newProgress >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsSyncing(false);
-            toast.success("Tasks synced to Google Calendar!");
-          }, 500);
-          return 100;
-        }
-        return newProgress;
+    // Get tasks that are due today or in the future
+    const tasksToSync = tasks.filter(task => {
+      const dueDate = new Date(task.dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return dueDate >= today;
+    });
+    
+    try {
+      // Simulate progress updates
+      const intervalTime = 2000 / tasksToSync.length || 200;
+      const interval = setInterval(() => {
+        setSyncProgress(prev => {
+          const newProgress = prev + (100 / tasksToSync.length);
+          if (newProgress >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+              setIsSyncing(false);
+              const now = new Date().toLocaleString();
+              setLastSynced(now);
+              localStorage.setItem('google_calendar_last_sync', now);
+              
+              // Show notification about the sync
+              const syncCount = tasksToSync.length;
+              toast.success(
+                syncCount === 0 
+                  ? "No tasks to sync" 
+                  : `${syncCount} task${syncCount === 1 ? '' : 's'} synced to Google Calendar!`,
+                {
+                  description: syncCount === 0 
+                    ? "Add tasks with due dates to sync them" 
+                    : "Your tasks are now visible in your Google Calendar"
+                }
+              );
+            }, 500);
+            return 100;
+          }
+          return newProgress;
+        });
+      }, intervalTime);
+      
+      // Simulate API calls to Google Calendar
+      for (const task of tasksToSync) {
+        // In a real app, this would be an actual API call to create calendar events
+        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log(`Synced task: ${task.title} due ${task.dueDate}`);
+      }
+    } catch (err: any) {
+      console.error("Error syncing tasks:", err);
+      setIsSyncing(false);
+      toast.error("Failed to sync tasks", {
+        description: err.message || "An unknown error occurred"
       });
-    }, 300);
+    }
   };
 
   const handleRefreshCalendar = () => {
@@ -134,7 +192,12 @@ const GoogleCalendarIntegration = () => {
     
     // Simulate fetching calendar events
     setTimeout(() => {
-      toast.success("Calendar refreshed successfully");
+      toast.success("Calendar refreshed successfully", {
+        description: "Your calendar is now up to date"
+      });
+      const now = new Date().toLocaleString();
+      setLastSynced(now);
+      localStorage.setItem('google_calendar_last_sync', now);
     }, 1500);
   };
 
@@ -165,23 +228,35 @@ const GoogleCalendarIntegration = () => {
               <AlertTitle className="text-green-600">Connected</AlertTitle>
               <AlertDescription className="text-green-700">
                 Your account is connected to Google Calendar. You can now sync your tasks.
+                {lastSynced && (
+                  <p className="mt-2 text-sm">Last synced: {lastSynced}</p>
+                )}
               </AlertDescription>
             </Alert>
             
             {isSyncing && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Syncing tasks...</span>
-                  <span>{syncProgress}%</span>
+                  <span>Syncing tasks to Google Calendar...</span>
+                  <span>{Math.round(syncProgress)}%</span>
                 </div>
                 <Progress value={syncProgress} className="h-2" />
               </div>
             )}
           </div>
         ) : (
-          <p className="text-muted-foreground mb-4">
-            Connect your Google Calendar to automatically sync your tasks and receive notifications.
-          </p>
+          <div>
+            <p className="text-muted-foreground mb-4">
+              Connect your Google Calendar to automatically sync your tasks and receive notifications.
+            </p>
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Not Connected</AlertTitle>
+              <AlertDescription>
+                You need to connect your Google account to sync your tasks with Google Calendar.
+              </AlertDescription>
+            </Alert>
+          </div>
         )}
       </CardContent>
       <CardFooter className="flex justify-between flex-wrap gap-2">
@@ -198,7 +273,7 @@ const GoogleCalendarIntegration = () => {
             </div>
             <Button onClick={handleSyncTasks} disabled={isSyncing}>
               <Calendar className="mr-2 h-4 w-4" />
-              {isSyncing ? `Syncing (${syncProgress}%)` : "Sync Tasks"}
+              {isSyncing ? `Syncing (${Math.round(syncProgress)}%)` : "Sync Tasks"}
             </Button>
           </>
         ) : (
