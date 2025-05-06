@@ -20,85 +20,104 @@ const GoogleCalendarIntegration = () => {
   const { user } = useAuth();
 
   // Google OAuth2 configuration
-  const CLIENT_ID = '123456789012-example12345example12345.apps.googleusercontent.com';
-  const REDIRECT_URI = window.location.origin;
+  // Using environment variables or directly specify from Google Cloud Console
+  const CLIENT_ID = '123456789012-example12345example12345.apps.googleusercontent.com'; // Replace with your actual Client ID
+  const API_KEY = 'AIzaSyA-example-apikey'; // Replace with your actual API Key
+  const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
+  const REDIRECT_URI = window.location.origin;
 
-  // Check if user is already authenticated with Google
+  // Load the Google API client library
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem('google_calendar_token');
-      if (token) {
-        try {
-          const tokenData = JSON.parse(token);
-          // Check if token is expired
-          const expiryTime = tokenData.issued_at + tokenData.expires_in * 1000;
-          if (Date.now() < expiryTime) {
-            setIsConnected(true);
-            // Get last synced time if available
-            const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
-            if (lastSyncTime) {
-              setLastSynced(lastSyncTime);
-            }
-          } else {
-            // Token is expired, clear it
-            toast.warning("Google Calendar connection expired", {
-              description: "Please reconnect your account"
-            });
-            localStorage.removeItem('google_calendar_token');
-          }
-        } catch (err) {
-          console.error("Error parsing token:", err);
-          setError("Error reading authentication data. Please reconnect.");
-        }
-      }
+    // Load Google API client library script
+    const loadGoogleScript = () => {
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api.js';
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeGoogleAPI;
+      document.body.appendChild(script);
     };
-    
-    checkAuth();
-  }, []);
 
-  // Handle OAuth redirect
-  useEffect(() => {
-    const handleOAuthRedirect = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      
-      if (code) {
-        // Remove the query parameters to prevent issues on refresh
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        setIsConnecting(true);
-        setError(null);
-        
-        try {
-          // Simulating token exchange - in a real app this would be a secure backend call
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          toast.success("Google Calendar connected successfully!", {
-            description: "You can now sync your tasks with your Google Calendar"
-          });
-          
-          // Store mock token
-          const mockToken = {
-            access_token: "mock_token",
-            expires_in: 3600,
-            issued_at: Date.now(),
-          };
-          localStorage.setItem('google_calendar_token', JSON.stringify(mockToken));
-          
+    const initializeGoogleAPI = () => {
+      window.gapi.load('client:auth2', initClient);
+    };
+
+    const initClient = () => {
+      // Initialize the Google API client
+      window.gapi.client.init({
+        apiKey: API_KEY,
+        clientId: CLIENT_ID,
+        discoveryDocs: DISCOVERY_DOCS,
+        scope: SCOPES
+      }).then(() => {
+        // Check if user is already signed in
+        if (window.gapi.auth2.getAuthInstance().isSignedIn.get()) {
           setIsConnected(true);
-        } catch (err: any) {
-          console.error("Error connecting to Google Calendar:", err);
-          setError("Failed to connect to Google Calendar. Please try again.");
-          toast.error("Failed to connect to Google Calendar");
-        } finally {
-          setIsConnecting(false);
+          const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
+          if (lastSyncTime) {
+            setLastSynced(lastSyncTime);
+          }
         }
-      }
+
+        // Listen for sign-in state changes
+        window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+      }).catch((error: any) => {
+        console.error('Error initializing Google API client:', error);
+        setError('Failed to initialize Google API client. Please check your credentials.');
+      });
     };
+
+    // Check if we have a code from the OAuth redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
     
-    handleOAuthRedirect();
+    if (code) {
+      // We have a code, handle the OAuth callback
+      window.history.replaceState({}, document.title, window.location.pathname);
+      handleOAuthCallback(code);
+    } else {
+      // No code, load the Google API script
+      loadGoogleScript();
+    }
   }, []);
+
+  const updateSigninStatus = (isSignedIn: boolean) => {
+    setIsConnected(isSignedIn);
+    if (isSignedIn) {
+      toast.success("Google Calendar connected successfully!", {
+        description: "You can now sync your tasks with your Google Calendar"
+      });
+    } else {
+      localStorage.removeItem('google_calendar_last_sync');
+      setLastSynced(null);
+    }
+  };
+
+  const handleOAuthCallback = async (code: string) => {
+    setIsConnecting(true);
+    setError(null);
+    
+    try {
+      // Exchange the code for a token
+      // This should be done in a secure backend to protect your client secret
+      // For demo purposes, we're simulating this
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Simulate success
+      toast.success("Google Calendar connected successfully!", {
+        description: "You can now sync your tasks with your Google Calendar"
+      });
+      
+      setIsConnected(true);
+    } catch (err: any) {
+      console.error("Error connecting to Google Calendar:", err);
+      setError("Failed to connect to Google Calendar. Please try again.");
+      toast.error("Failed to connect to Google Calendar");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   const handleConnect = () => {
     if (!CLIENT_ID) {
@@ -107,19 +126,37 @@ const GoogleCalendarIntegration = () => {
       });
       return;
     }
-    
-    // Generate OAuth URL with required scopes for calendar access
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
-    
-    window.location.href = authUrl;
+
+    try {
+      // Initiate OAuth flow if Google API is loaded
+      if (window.gapi && window.gapi.auth2) {
+        window.gapi.auth2.getAuthInstance().signIn()
+          .catch((error: any) => {
+            console.error("Error during Google sign-in:", error);
+            setError("Failed to connect to Google Calendar. Please try again.");
+            toast.error("Failed to connect to Google Calendar");
+          });
+      } else {
+        // Fallback to manual OAuth if Google API isn't loaded
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
+        window.location.href = authUrl;
+      }
+    } catch (error) {
+      console.error("Error initiating Google sign-in:", error);
+      setError("Failed to connect to Google Calendar. Please try again.");
+      toast.error("Failed to connect to Google Calendar");
+    }
   };
 
   const handleDisconnect = () => {
-    localStorage.removeItem('google_calendar_token');
-    localStorage.removeItem('google_calendar_last_sync');
-    setIsConnected(false);
-    setLastSynced(null);
-    toast.success("Disconnected from Google Calendar");
+    // Sign out of Google
+    if (window.gapi && window.gapi.auth2) {
+      window.gapi.auth2.getAuthInstance().signOut().then(() => {
+        localStorage.removeItem('google_calendar_last_sync');
+        setLastSynced(null);
+        toast.success("Disconnected from Google Calendar");
+      });
+    }
   };
 
   const handleSyncTasks = async () => {
@@ -133,6 +170,7 @@ const GoogleCalendarIntegration = () => {
     
     // Get tasks that are due today or in the future
     const tasksToSync = tasks.filter(task => {
+      if (!task.dueDate) return false;
       const dueDate = new Date(task.dueDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -141,43 +179,57 @@ const GoogleCalendarIntegration = () => {
     
     try {
       // Simulate progress updates
-      const intervalTime = 2000 / tasksToSync.length || 200;
-      const interval = setInterval(() => {
-        setSyncProgress(prev => {
-          const newProgress = prev + (100 / tasksToSync.length);
-          if (newProgress >= 100) {
-            clearInterval(interval);
-            setTimeout(() => {
-              setIsSyncing(false);
-              const now = new Date().toLocaleString();
-              setLastSynced(now);
-              localStorage.setItem('google_calendar_last_sync', now);
-              
-              // Show notification about the sync
-              const syncCount = tasksToSync.length;
-              toast.success(
-                syncCount === 0 
-                  ? "No tasks to sync" 
-                  : `${syncCount} task${syncCount === 1 ? '' : 's'} synced to Google Calendar!`,
-                {
-                  description: syncCount === 0 
-                    ? "Add tasks with due dates to sync them" 
-                    : "Your tasks are now visible in your Google Calendar"
-                }
-              );
-            }, 500);
-            return 100;
-          }
-          return newProgress;
-        });
-      }, intervalTime);
+      const totalTasks = tasksToSync.length || 1;
+      const stepSize = 100 / totalTasks;
       
-      // Simulate API calls to Google Calendar
-      for (const task of tasksToSync) {
-        // In a real app, this would be an actual API call to create calendar events
-        await new Promise(resolve => setTimeout(resolve, 100));
-        console.log(`Synced task: ${task.title} due ${task.dueDate}`);
+      // Process each task
+      for (let i = 0; i < tasksToSync.length; i++) {
+        const task = tasksToSync[i];
+        
+        // In a real app, this would create calendar events with the Google Calendar API
+        if (window.gapi && window.gapi.client) {
+          try {
+            // Create calendar event
+            console.log(`Creating calendar event for task: ${task.title}`);
+            
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Calculate progress
+            const progress = Math.min(stepSize * (i + 1), 100);
+            setSyncProgress(progress);
+            
+          } catch (error) {
+            console.error(`Error creating calendar event for task ${task.title}:`, error);
+          }
+        }
       }
+      
+      // Final progress update
+      setSyncProgress(100);
+      
+      // Update last synced time
+      const now = new Date().toLocaleString();
+      setLastSynced(now);
+      localStorage.setItem('google_calendar_last_sync', now);
+      
+      setTimeout(() => {
+        setIsSyncing(false);
+        
+        // Show notification about the sync
+        const syncCount = tasksToSync.length;
+        toast.success(
+          syncCount === 0 
+            ? "No tasks to sync" 
+            : `${syncCount} task${syncCount === 1 ? '' : 's'} synced to Google Calendar!`,
+          {
+            description: syncCount === 0 
+              ? "Add tasks with due dates to sync them" 
+              : "Your tasks are now visible in your Google Calendar"
+          }
+        );
+      }, 500);
+      
     } catch (err: any) {
       console.error("Error syncing tasks:", err);
       setIsSyncing(false);
@@ -286,5 +338,12 @@ const GoogleCalendarIntegration = () => {
     </Card>
   );
 };
+
+// Add this to the global Window interface
+declare global {
+  interface Window {
+    gapi: any;
+  }
+}
 
 export default GoogleCalendarIntegration;
