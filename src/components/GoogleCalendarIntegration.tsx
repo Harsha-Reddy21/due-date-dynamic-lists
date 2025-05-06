@@ -20,31 +20,96 @@ const GoogleCalendarIntegration = () => {
   const { user } = useAuth();
 
   // Google OAuth2 configuration
-  // Using environment variables or directly specify from Google Cloud Console
-  const CLIENT_ID = '123456789012-example12345example12345.apps.googleusercontent.com'; // Replace with your actual Client ID
-  const API_KEY = 'AIzaSyA-example-apikey'; // Replace with your actual API Key
+  // Replace these with your actual Google Cloud Console credentials
+  const CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID';
+  const API_KEY = process.env.VITE_GOOGLE_API_KEY || 'YOUR_API_KEY';
   const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
   const REDIRECT_URI = window.location.origin;
 
-  // Load the Google API client library
+  // Check if we're in the OAuth callback
   useEffect(() => {
-    // Load Google API client library script
-    const loadGoogleScript = () => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const error = params.get('error');
+
+    if (error) {
+      setError(`Authentication error: ${error}`);
+      toast.error("Google Calendar authentication failed", {
+        description: `Error: ${error}`
+      });
+      return;
+    }
+
+    if (code) {
+      handleOAuthCallback(code);
+      // Remove the code from the URL to prevent reprocessing on refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Check local storage for connection status
+      const isGoogleConnected = localStorage.getItem('google_calendar_connected');
+      if (isGoogleConnected === 'true') {
+        setIsConnected(true);
+        const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
+        if (lastSyncTime) {
+          setLastSynced(lastSyncTime);
+        }
+      }
+    }
+  }, []);
+
+  // Load Google API client library if needed
+  useEffect(() => {
+    // Skip if already connected or connecting
+    if (isConnected || isConnecting) return;
+
+    let scriptLoaded = false;
+    const checkGoogleAPI = () => {
+      if (window.gapi && !scriptLoaded) {
+        scriptLoaded = true;
+        initializeGoogleAPI();
+      }
+    };
+
+    // Check if script is already loaded
+    if (document.querySelector('script[src="https://apis.google.com/js/api.js"]')) {
+      checkGoogleAPI();
+    } else {
+      // Load Google API client library script
       const script = document.createElement('script');
       script.src = 'https://apis.google.com/js/api.js';
       script.async = true;
       script.defer = true;
-      script.onload = initializeGoogleAPI;
+      script.onload = () => {
+        scriptLoaded = true;
+        initializeGoogleAPI();
+      };
+      script.onerror = () => {
+        setError('Failed to load Google API client library');
+      };
       document.body.appendChild(script);
-    };
+    }
 
-    const initializeGoogleAPI = () => {
+    // Poll for Google API to be loaded
+    const interval = setInterval(checkGoogleAPI, 100);
+    return () => clearInterval(interval);
+  }, [isConnected, isConnecting]);
+
+  const initializeGoogleAPI = () => {
+    if (!window.gapi) return;
+    
+    try {
       window.gapi.load('client:auth2', initClient);
-    };
+    } catch (error) {
+      console.error('Error loading Google API client', error);
+      setError('Failed to initialize Google API client');
+    }
+  };
 
-    const initClient = () => {
-      // Initialize the Google API client
+  const initClient = () => {
+    if (!window.gapi) return;
+    
+    try {
       window.gapi.client.init({
         apiKey: API_KEY,
         clientId: CLIENT_ID,
@@ -52,38 +117,28 @@ const GoogleCalendarIntegration = () => {
         scope: SCOPES
       }).then(() => {
         // Check if user is already signed in
-        if (window.gapi.auth2.getAuthInstance().isSignedIn.get()) {
-          setIsConnected(true);
-          const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
-          if (lastSyncTime) {
-            setLastSynced(lastSyncTime);
-          }
+        if (window.gapi.auth2 && window.gapi.auth2.getAuthInstance().isSignedIn.get()) {
+          updateSigninStatus(true);
         }
 
         // Listen for sign-in state changes
-        window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        if (window.gapi.auth2) {
+          window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
+        }
       }).catch((error: any) => {
         console.error('Error initializing Google API client:', error);
         setError('Failed to initialize Google API client. Please check your credentials.');
       });
-    };
-
-    // Check if we have a code from the OAuth redirect
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    
-    if (code) {
-      // We have a code, handle the OAuth callback
-      window.history.replaceState({}, document.title, window.location.pathname);
-      handleOAuthCallback(code);
-    } else {
-      // No code, load the Google API script
-      loadGoogleScript();
+    } catch (error) {
+      console.error('Error in initClient', error);
+      setError('Failed to initialize Google API client');
     }
-  }, []);
+  };
 
   const updateSigninStatus = (isSignedIn: boolean) => {
     setIsConnected(isSignedIn);
+    localStorage.setItem('google_calendar_connected', isSignedIn.toString());
+    
     if (isSignedIn) {
       toast.success("Google Calendar connected successfully!", {
         description: "You can now sync your tasks with your Google Calendar"
@@ -99,52 +154,62 @@ const GoogleCalendarIntegration = () => {
     setError(null);
     
     try {
-      // Exchange the code for a token
-      // This should be done in a secure backend to protect your client secret
-      // For demo purposes, we're simulating this
+      // In a real app, you'd exchange the code for a token using a backend service
+      // For demo purposes, we'll simulate success after a delay
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Simulate success
+      // Simulate successful connection
+      setIsConnected(true);
+      localStorage.setItem('google_calendar_connected', 'true');
+      
       toast.success("Google Calendar connected successfully!", {
         description: "You can now sync your tasks with your Google Calendar"
       });
-      
-      setIsConnected(true);
     } catch (err: any) {
       console.error("Error connecting to Google Calendar:", err);
       setError("Failed to connect to Google Calendar. Please try again.");
       toast.error("Failed to connect to Google Calendar");
+      localStorage.setItem('google_calendar_connected', 'false');
     } finally {
       setIsConnecting(false);
     }
   };
 
   const handleConnect = () => {
-    if (!CLIENT_ID) {
-      toast.error("Google Calendar integration is not configured", {
-        description: "Please add your Google API client ID to enable this feature."
+    setError(null);
+    
+    if (!CLIENT_ID || CLIENT_ID === 'YOUR_CLIENT_ID') {
+      toast.error("Google Calendar integration is not properly configured", {
+        description: "Please configure your Google API credentials in the application settings."
       });
+      setError("Google Calendar integration is not configured. Missing client ID.");
       return;
     }
 
     try {
-      // Initiate OAuth flow if Google API is loaded
+      // Initiate OAuth flow
       if (window.gapi && window.gapi.auth2) {
+        setIsConnecting(true);
         window.gapi.auth2.getAuthInstance().signIn()
+          .then(() => {
+            setIsConnecting(false);
+          })
           .catch((error: any) => {
             console.error("Error during Google sign-in:", error);
             setError("Failed to connect to Google Calendar. Please try again.");
             toast.error("Failed to connect to Google Calendar");
+            setIsConnecting(false);
           });
       } else {
         // Fallback to manual OAuth if Google API isn't loaded
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
         window.location.href = authUrl;
       }
     } catch (error) {
       console.error("Error initiating Google sign-in:", error);
       setError("Failed to connect to Google Calendar. Please try again.");
       toast.error("Failed to connect to Google Calendar");
+      setIsConnecting(false);
     }
   };
 
@@ -152,10 +217,19 @@ const GoogleCalendarIntegration = () => {
     // Sign out of Google
     if (window.gapi && window.gapi.auth2) {
       window.gapi.auth2.getAuthInstance().signOut().then(() => {
+        localStorage.removeItem('google_calendar_connected');
         localStorage.removeItem('google_calendar_last_sync');
         setLastSynced(null);
+        setIsConnected(false);
         toast.success("Disconnected from Google Calendar");
       });
+    } else {
+      // Fallback if Google API isn't loaded
+      localStorage.removeItem('google_calendar_connected');
+      localStorage.removeItem('google_calendar_last_sync');
+      setLastSynced(null);
+      setIsConnected(false);
+      toast.success("Disconnected from Google Calendar");
     }
   };
 
