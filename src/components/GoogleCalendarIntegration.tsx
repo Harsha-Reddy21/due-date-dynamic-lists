@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw, LogOut, Plus } from 'lucide-react';
@@ -8,6 +7,7 @@ import { toast } from './ui/sonner';
 import { useTaskContext } from '@/contexts/TaskContext';
 import { Progress } from './ui/progress';
 import '@/types/google-api.d.ts';
+import { supabase } from '@/integrations/supabase/client';
 
 // Configuration
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
