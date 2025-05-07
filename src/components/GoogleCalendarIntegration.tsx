@@ -34,8 +34,8 @@ const GoogleCalendarIntegration = () => {
   const { tasks } = useTaskContext();
   
   // These are set up as variables to be used throughout the component
-  const [gapi, setGapi] = useState<any>(null);
-  const [google, setGoogle] = useState<any>(null);
+  const [gapi, setGapi] = useState<typeof window.gapi | null>(null);
+  const [google, setGoogle] = useState<typeof window.google | null>(null);
   const [tokenClient, setTokenClient] = useState<any>(null);
   
   useEffect(() => {
