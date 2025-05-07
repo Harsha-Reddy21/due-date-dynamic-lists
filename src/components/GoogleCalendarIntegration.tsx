@@ -275,10 +275,29 @@ const GoogleCalendarIntegration = () => {
     }
     
     try {
+      // First check if calendar API is already loaded
       if (!window.gapi.client.calendar) {
-        await window.gapi.client.load('calendar', 'v3');
+        // If not loaded, manually initialize the calendar API
+        await new Promise<void>((resolve) => {
+          if (window.gapi) {
+            window.gapi.load('client:auth2', () => {
+              if (window.gapi.client) {
+                window.gapi.client.init({
+                  discoveryDocs: [DISCOVERY_DOC]
+                }).then(() => {
+                  resolve();
+                });
+              } else {
+                resolve();
+              }
+            });
+          } else {
+            resolve();
+          }
+        });
       }
       
+      // Now try to use calendar API
       const response = await window.gapi.client.calendar.events.list({
         'calendarId': 'primary',
         'timeMin': new Date().toISOString(),
@@ -312,14 +331,31 @@ const GoogleCalendarIntegration = () => {
     }
     
     // Make sure calendar API is loaded
-    if (!window.gapi.client.calendar) {
-      try {
-        await window.gapi.client.load('calendar', 'v3');
-      } catch (err) {
-        console.error('Failed to load calendar API:', err);
-        toast.error('Failed to load Google Calendar API');
-        return;
+    try {
+      // Check if calendar API is loaded, if not initialize it
+      if (!window.gapi.client.calendar) {
+        await new Promise<void>((resolve) => {
+          if (window.gapi) {
+            window.gapi.load('client:auth2', () => {
+              if (window.gapi.client) {
+                window.gapi.client.init({
+                  discoveryDocs: [DISCOVERY_DOC]
+                }).then(() => {
+                  resolve();
+                });
+              } else {
+                resolve();
+              }
+            });
+          } else {
+            resolve();
+          }
+        });
       }
+    } catch (err) {
+      console.error('Failed to load calendar API:', err);
+      toast.error('Failed to load Google Calendar API');
+      return;
     }
     
     setIsSyncing(true);

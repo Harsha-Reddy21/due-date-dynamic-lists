@@ -6,7 +6,7 @@ declare global {
       load: (api: string, callback: () => void) => void;
       client: {
         init: (config: {
-          apiKey: string;
+          apiKey?: string;
           clientId?: string;
           scope?: string;
           discoveryDocs?: string[];

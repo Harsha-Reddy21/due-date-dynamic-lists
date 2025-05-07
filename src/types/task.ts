@@ -14,6 +14,7 @@ export interface Task {
   updatedAt: string;
   children?: Task[]; // For nested structure
   completed: boolean; // Added this property
+  calendarEventId?: string; // Added for Google Calendar integration
 }
 
 export interface TaskWithPriority extends Task {
