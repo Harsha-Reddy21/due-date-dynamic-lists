@@ -20,26 +20,24 @@ const Dashboard: React.FC = () => {
   
   const rootTasks = getRootTasks();
   
-  // Count tasks due today and tomorrow (no notifications here)
+  // Count only non-completed tasks due today and tomorrow
   const todayTasks = tasks.filter(task => {
-    if (!task.dueDate) return false;
+    if (!task.dueDate || task.completed) return false;
     return isToday(new Date(task.dueDate));
   });
   
   const tomorrowTasks = tasks.filter(task => {
-    if (!task.dueDate) return false;
+    if (!task.dueDate || task.completed) return false;
     return isTomorrow(new Date(task.dueDate));
   });
   
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       {/* Dashboard Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Your Dashboard</h1>
-        <p className="text-muted-foreground">
-          Organize and prioritize your tasks efficiently
-        </p>
-      </div>
+      <h1 className="text-3xl font-bold mb-2">Your Dashboard</h1>
+      <p className="text-muted-foreground mb-8">
+        Organize and prioritize your tasks efficiently
+      </p>
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

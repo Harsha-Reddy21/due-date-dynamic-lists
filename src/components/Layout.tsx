@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { BellRing, HelpCircle } from "lucide-react";
@@ -30,7 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notificationsShown, setNotificationsShown] = useState(false);
   
-  // Calculate notifications based on due dates
+  // Calculate notifications based on due dates - exclude completed tasks
   useEffect(() => {
     if (tasks.length > 0) {
       const today = new Date();
@@ -41,14 +40,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       tomorrow.setHours(0, 0, 0, 0);
       
       const dueTodayTasks = tasks.filter(task => {
-        if (!task.dueDate) return false;
+        if (!task.dueDate || task.completed) return false;
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === today.getTime();
       });
       
       const dueTomorrowTasks = tasks.filter(task => {
-        if (!task.dueDate) return false;
+        if (!task.dueDate || task.completed) return false;
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === tomorrow.getTime();
