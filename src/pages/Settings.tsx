@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -25,6 +24,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+// Import Google API types
+import '@/types/google-api';
 
 const integrationFormSchema = z.object({
   clientId: z.string().min(1, "Client ID is required"),
