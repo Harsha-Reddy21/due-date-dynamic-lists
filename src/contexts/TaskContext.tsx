@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
@@ -51,31 +50,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return dueDate.getTime() === tomorrow.getTime();
       });
       
-      // Show notifications for tasks due today
-      if (dueTodayTasks.length > 0) {
-        toast.warning(
-          dueTodayTasks.length === 1
-            ? `"${dueTodayTasks[0].title}" is due today!`
-            : `You have ${dueTodayTasks.length} tasks due today!`,
-          {
-            description: "Check your tasks to see what needs to be completed.",
-            duration: 5000,
-          }
-        );
-      }
-      
-      // Show notifications for tasks due tomorrow
-      if (dueTomorrowTasks.length > 0) {
-        toast.info(
-          dueTomorrowTasks.length === 1
-            ? `"${dueTomorrowTasks[0].title}" is due tomorrow.`
-            : `You have ${dueTomorrowTasks.length} tasks due tomorrow.`,
-          {
-            description: "Plan ahead to complete these tasks on time.",
-            duration: 5000,
-          }
-        );
-      }
+      // We're removing the notifications from here as they will be handled in the Layout component only once
     }
   }, [flatTasks]);
   
@@ -113,7 +88,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
-          completed: task.completed || false, // Adding with a default value
+          // Use the completed property from the database or default to false
+          completed: task.completed === true, 
         }));
         
         setFlatTasks(formattedTasks);
@@ -197,7 +173,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: task.description,
             due_date: task.dueDate,
             weight: task.weight,
-            completed: task.completed || false // Adding with a default value
+            completed: task.completed || false
           }
         ])
         .select()

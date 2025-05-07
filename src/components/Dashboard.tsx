@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import TaskForm from "./TaskForm";
 import TaskList from "./TaskList";
 import CalendarView from "./CalendarView";
@@ -11,7 +10,6 @@ import { Plus, ListChecks, Clock, ArrowUp, Calendar, Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { toast } from "./ui/sonner";
 import { format, isToday, isTomorrow, startOfDay, endOfDay } from "date-fns";
 import { Badge } from "./ui/badge";
 
@@ -23,7 +21,7 @@ const Dashboard: React.FC = () => {
   
   const rootTasks = getRootTasks();
   
-  // Count tasks due today and tomorrow
+  // Count tasks due today and tomorrow (no notifications here)
   const todayTasks = tasks.filter(task => {
     if (!task.dueDate) return false;
     return isToday(new Date(task.dueDate));
@@ -33,48 +31,6 @@ const Dashboard: React.FC = () => {
     if (!task.dueDate) return false;
     return isTomorrow(new Date(task.dueDate));
   });
-  
-  // Show notifications for tasks due today and tomorrow
-  useEffect(() => {
-    const showNotifications = () => {
-      if (todayTasks.length > 0) {
-        toast.info(
-          `${todayTasks.length} task${todayTasks.length === 1 ? '' : 's'} due today`,
-          {
-            description: todayTasks.length === 1 
-              ? `"${todayTasks[0].title}" is due today` 
-              : `Including "${todayTasks[0].title}" and ${todayTasks.length - 1} more`,
-            action: {
-              label: "View",
-              onClick: () => setActiveView("list")
-            }
-          }
-        );
-      }
-      
-      if (tomorrowTasks.length > 0) {
-        setTimeout(() => {
-          toast.info(
-            `${tomorrowTasks.length} task${tomorrowTasks.length === 1 ? '' : 's'} due tomorrow`,
-            {
-              description: tomorrowTasks.length === 1 
-                ? `"${tomorrowTasks[0].title}" is due tomorrow` 
-                : `Including "${tomorrowTasks[0].title}" and ${tomorrowTasks.length - 1} more`,
-              action: {
-                label: "View",
-                onClick: () => setActiveView("list")
-              }
-            }
-          );
-        }, 1000); // Small delay between toasts
-      }
-    };
-    
-    // Show notifications on component mount, but with a small delay
-    const timer = setTimeout(showNotifications, 1500);
-    
-    return () => clearTimeout(timer);
-  }, [todayTasks, tomorrowTasks]);
   
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">

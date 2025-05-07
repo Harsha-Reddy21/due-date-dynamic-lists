@@ -38,6 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }>({ today: [], tomorrow: [] });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [viewedNotifications, setViewedNotifications] = useState<string[]>([]);
+  const [notificationsShown, setNotificationsShown] = useState(false);
   
   // Calculate notifications based on due dates
   useEffect(() => {
@@ -50,12 +51,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       tomorrow.setHours(0, 0, 0, 0);
       
       const dueTodayTasks = tasks.filter(task => {
+        if (!task.dueDate) return false;
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === today.getTime();
       });
       
       const dueTomorrowTasks = tasks.filter(task => {
+        if (!task.dueDate) return false;
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === tomorrow.getTime();
@@ -72,6 +75,33 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         .length;
       
       setNotificationCount(unviewedCount);
+      
+      // Show notification toast only once per session
+      if (!notificationsShown && (dueTodayTasks.length > 0 || dueTomorrowTasks.length > 0)) {
+        setNotificationsShown(true);
+        
+        if (dueTodayTasks.length > 0) {
+          toast.warning(
+            dueTodayTasks.length === 1
+              ? `"${dueTodayTasks[0].title}" is due today!`
+              : `You have ${dueTodayTasks.length} tasks due today!`,
+            {
+              description: "Check your notifications to see what needs to be completed.",
+              duration: 5000,
+            }
+          );
+        } else if (dueTomorrowTasks.length > 0) {
+          toast.info(
+            dueTomorrowTasks.length === 1
+              ? `"${dueTomorrowTasks[0].title}" is due tomorrow.`
+              : `You have ${dueTomorrowTasks.length} tasks due tomorrow.`,
+            {
+              description: "Plan ahead to complete these tasks on time.",
+              duration: 5000,
+            }
+          );
+        }
+      }
     } else {
       setNotifications({ today: [], tomorrow: [] });
       setNotificationCount(0);

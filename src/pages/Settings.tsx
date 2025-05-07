@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -5,15 +6,30 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, Bell } from 'lucide-react';
+import { Calendar, Bell, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { Input } from '@/components/ui/input';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
-// Google OAuth Client ID (replace with your actual client ID)
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID";
-const GOOGLE_API_KEY = "YOUR_GOOGLE_API_KEY";
-const SCOPES = "https://www.googleapis.com/auth/calendar.readonly";
+const integrationFormSchema = z.object({
+  clientId: z.string().min(1, "Client ID is required"),
+  apiKey: z.string().min(1, "API Key is required"),
+});
+
+type IntegrationFormValues = z.infer<typeof integrationFormSchema>;
 
 const Settings: React.FC = () => {
   const { user } = useAuth();
@@ -22,9 +38,22 @@ const Settings: React.FC = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   
-  const handleGoogleConnect = async () => {
+  // Form for Google Calendar credentials
+  const form = useForm<IntegrationFormValues>({
+    resolver: zodResolver(integrationFormSchema),
+    defaultValues: {
+      clientId: localStorage.getItem("GOOGLE_CLIENT_ID") || "",
+      apiKey: localStorage.getItem("GOOGLE_API_KEY") || "",
+    },
+  });
+  
+  const handleGoogleConnect = async (values: IntegrationFormValues) => {
     try {
       setIsLoading(true);
+      
+      // Save credentials to localStorage
+      localStorage.setItem("GOOGLE_CLIENT_ID", values.clientId);
+      localStorage.setItem("GOOGLE_API_KEY", values.apiKey);
       
       // Load the Google API client library
       if (!window.gapi) {
@@ -42,9 +71,9 @@ const Settings: React.FC = () => {
       });
       
       await window.gapi.client.init({
-        apiKey: GOOGLE_API_KEY,
-        clientId: GOOGLE_CLIENT_ID,
-        scope: SCOPES,
+        apiKey: values.apiKey,
+        clientId: values.clientId,
+        scope: "https://www.googleapis.com/auth/calendar.readonly",
         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]
       });
       
@@ -61,7 +90,7 @@ const Settings: React.FC = () => {
     } catch (error) {
       console.error("Google Calendar connection error:", error);
       toast.error("Failed to connect Google Calendar", { 
-        description: "Please try again or check your credentials" 
+        description: "Please verify your credentials and try again" 
       });
     } finally {
       setIsLoading(false);
@@ -147,19 +176,16 @@ const Settings: React.FC = () => {
                     </div>
                   </div>
                   
-                  <Button 
-                    variant={isGoogleConnected ? "outline" : "default"} 
-                    size="sm"
-                    onClick={isGoogleConnected ? handleGoogleDisconnect : handleGoogleConnect}
-                    disabled={isLoading}
-                  >
-                    {isLoading 
-                      ? "Processing..." 
-                      : isGoogleConnected 
-                        ? "Disconnect" 
-                        : "Connect"
-                    }
-                  </Button>
+                  {isGoogleConnected && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleGoogleDisconnect}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Processing..." : "Disconnect"}
+                    </Button>
+                  )}
                 </div>
                 
                 {isGoogleConnected && (
@@ -171,6 +197,72 @@ const Settings: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                )}
+                
+                {!isGoogleConnected && (
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleGoogleConnect)} className="space-y-4">
+                      <div className="rounded-md bg-amber-50 p-4 mb-4">
+                        <div className="flex">
+                          <Info className="h-5 w-5 text-amber-800 mr-2" />
+                          <div className="text-amber-800">
+                            <p className="text-sm font-medium">Google Cloud API Credentials Required</p>
+                            <p className="text-xs">You need to create a project in the Google Cloud Console and generate credentials. 
+                              <a 
+                                href="https://developers.google.com/calendar/api/quickstart/js" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline ml-1"
+                              >
+                                Learn how to get credentials
+                              </a>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <FormField
+                        control={form.control}
+                        name="clientId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Google Client ID</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Your Google OAuth Client ID" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              Client ID from your Google Cloud Console
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="apiKey"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Google API Key</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Your Google API Key" {...field} />
+                            </FormControl>
+                            <FormDescription>
+                              API Key from your Google Cloud Console
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <Button 
+                        type="submit"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? "Connecting..." : "Connect Google Calendar"}
+                      </Button>
+                    </form>
+                  </Form>
                 )}
               </CardContent>
             </Card>
@@ -195,7 +287,7 @@ const Settings: React.FC = () => {
                   <Switch
                     id="email-notifications"
                     checked={emailNotifications}
-                    onCheckedChange={(checked: boolean) => setEmailNotifications(checked)}
+                    onCheckedChange={setEmailNotifications}
                   />
                 </div>
                 <Separator />
@@ -209,7 +301,7 @@ const Settings: React.FC = () => {
                   <Switch
                     id="push-notifications"
                     checked={pushNotifications}
-                    onCheckedChange={(checked: boolean) => setPushNotifications(checked)}
+                    onCheckedChange={setPushNotifications}
                   />
                 </div>
               </CardContent>
