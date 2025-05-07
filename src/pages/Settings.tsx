@@ -27,7 +27,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 
 // Import Google API types - this will ensure TypeScript knows about window.gapi and window.google
-import '@/types/google-api.d.ts';
+import '@/types/google-api';
 
 const integrationFormSchema = z.object({
   clientId: z.string().min(1, "Client ID is required"),

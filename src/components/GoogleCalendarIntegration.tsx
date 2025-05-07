@@ -9,7 +9,7 @@ import { useTaskContext } from '@/contexts/TaskContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Progress } from './ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import '@/types/google-api.d.ts';
+import '@/types/google-api';
 
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
