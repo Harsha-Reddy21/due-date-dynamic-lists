@@ -200,9 +200,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 TaskPal
               </h1>
             </Link>
-            <Badge className="ml-2 bg-gradient-to-r from-blue-200 to-purple-200 text-xs px-2 py-0.5 rounded-full text-purple-800 font-medium border-0">
-              BETA
-            </Badge>
           </div>
           <div className="flex items-center gap-3">
             <Popover open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>

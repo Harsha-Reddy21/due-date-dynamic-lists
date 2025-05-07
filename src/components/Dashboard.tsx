@@ -118,7 +118,7 @@ const Dashboard: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-0 pb-0">
-              <TaskList tasks={topTasks} showScore={true} />
+              <TaskList tasks={topTasks.filter(task => task.parentId === null)} showScore={true} />
             </CardContent>
           </Card>
         </div>
@@ -150,7 +150,7 @@ const Dashboard: React.FC = () => {
             <CardContent className="px-0 pb-0">
               <Tabs defaultValue="calendar" value={activeView}>
                 <TabsContent value="list" className="mt-0">
-                  <TaskList tasks={rootTasks} showScore={true} />
+                  <TaskList tasks={rootTasks.filter(task => task.parentId === null)} showScore={true} />
                 </TabsContent>
                 <TabsContent value="calendar" className="mt-0">
                   <CalendarView />

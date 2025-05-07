@@ -101,26 +101,28 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
   };
   
   // Apply different styles for subtasks
+  const { getTaskColor } = useTaskContext();
+  const taskColor = getTaskColor(task.id);
+  
   const titleClassName = isSubtask 
-    ? "font-medium text-xs text-gray-800"
-    : "font-medium text-sm text-gray-800";
+    ? "font-medium text-xs text-gray-700"
+    : `font-medium text-sm text-gray-800 bg-[${taskColor}] bg-opacity-10 px-2 py-1 rounded-md`;
   
   const descriptionClassName = isSubtask
-    ? "text-xs text-gray-600 mt-0.5"
+    ? "text-xs text-gray-500 mt-0.5"
     : "text-xs text-gray-600 mt-1";
     
   const badgeClassName = isSubtask
-    ? "text-[10px]"
-    : "text-xs";
+    ? "text-[10px] px-1.5 py-0.5"
+    : "text-xs px-2 py-1";
     
   return (
-    <div className={`flex flex-col p-3 border rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow ${isSubtask ? 'border-gray-100' : 'border-gray-200'}`}>
+    <div className={`flex flex-col p-3 border rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow ${isSubtask ? 'border-gray-100 border-dashed' : 'border-gray-200 border-solid'}`}>
       <div className="flex justify-between items-start mb-1">
         <div>
           <h3 className={titleClassName}>{task.title}</h3>
           {task.description && <p className={descriptionClassName}>{task.description}</p>}
         </div>
-        
         <div className="flex gap-1">
           {showScore && task.priorityScore && !isSubtask && (
             <Badge variant="outline" className="bg-primary-50 text-primary font-medium text-xs">

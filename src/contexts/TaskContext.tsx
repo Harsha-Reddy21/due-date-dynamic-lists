@@ -20,6 +20,7 @@ interface TaskContextProps {
   markNotificationsAsSeen: () => void;
   hasUnseenNotifications: boolean;
   refreshTasks: () => Promise<void>; // Added refreshTasks method
+  getTaskColor: (taskId: string) => string;
 }
 
 const TaskContext = createContext<TaskContextProps | undefined>(undefined);
@@ -41,44 +42,106 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Track initial load
   const initialLoadRef = useRef(true);
+
+  // Function to update notification state in Supabase
+  const updateNotificationState = async (seen: boolean) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert(
+          { user_id: user.id, notifications_seen: seen },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating notification state:', error);
+    }
+  };
+
+  // Generate unique color for a task
+  const getTaskColor = (taskId: string): string => {
+    // Convert task ID to a number using a simple hash
+    let hash = 0;
+    for (let i = 0; i < taskId.length; i++) {
+      hash = taskId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Generate a color based on the hash
+    const hue = (hash % 360) / 360;
+    const saturation = 0.7;
+    const lightness = 0.7;
+    
+    // Convert HSL to RGB
+    const hslToRgb = (h: number, s: number, l: number) => {
+      const a = s * Math.min(l, 1 - l);
+      const f = (n: number) => {
+        const k = (n + h * 12) % 12;
+        return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      };
+      return `rgb(${Math.round(f(0) * 255)}, ${Math.round(f(8) * 255)}, ${Math.round(f(4) * 255)})`;
+    };
+    
+    return hslToRgb(hue, saturation, lightness);
+  };
   
   // Check for due tasks and show notifications
   useEffect(() => {
-    if (flatTasks.length > 0) {
-      // Find tasks due today or tomorrow
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const dueTodayTasks = flatTasks.filter(task => {
-        if (!task.dueDate) return false;
-        const dueDate = new Date(task.dueDate);
-        dueDate.setHours(0, 0, 0, 0);
-        return dueDate.getTime() === today.getTime();
-      });
-      
-      const dueTomorrowTasks = flatTasks.filter(task => {
-        if (!task.dueDate) return false;
-        const dueDate = new Date(task.dueDate);
-        dueDate.setHours(0, 0, 0, 0);
-        return dueDate.getTime() === tomorrow.getTime();
-      });
-      
-      // Only mark as unseen if we actually have notifications to show
-      // and this isn't the initial load
-      if ((dueTodayTasks.length > 0 || dueTomorrowTasks.length > 0) && !initialLoadRef.current) {
+    if (!user) return;
+
+    // First check the user's notification state from Supabase
+    const checkNotificationState = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('notifications_seen')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        if (data?.notifications_seen) {
+          setNotificationsSeen(true);
+          setHasUnseenNotifications(false);
+        }
+      } catch (error) {
+        console.error('Error checking notification state:', error);
+        // If there's an error or no record exists, default to notifications not seen
         setNotificationsSeen(false);
         setHasUnseenNotifications(true);
       }
-      
-      // After first load, set initialLoad to false
-      if (initialLoadRef.current) {
-        initialLoadRef.current = false;
-      }
+    };
+
+    checkNotificationState();
+
+    // Find tasks due today or tomorrow
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const dueTodayTasks = flatTasks.filter(task => {
+      if (!task.dueDate) return false;
+      const dueDate = new Date(task.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate.getTime() === today.getTime();
+    });
+    
+    const dueTomorrowTasks = flatTasks.filter(task => {
+      if (!task.dueDate) return false;
+      const dueDate = new Date(task.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate.getTime() === tomorrow.getTime();
+    });
+
+    // Update notification state based on tasks
+    if (dueTodayTasks.length > 0 || dueTomorrowTasks.length > 0) {
+      setHasUnseenNotifications(!notificationsSeen);
     }
-  }, [flatTasks]);
+  }, [flatTasks, user, notificationsSeen]);
   
   // Listen for page navigation to avoid resetting notification state
   useEffect(() => {
@@ -234,9 +297,10 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Mark notifications as seen
-  const markNotificationsAsSeen = () => {
+  const markNotificationsAsSeen = async () => {
     setNotificationsSeen(true);
     setHasUnseenNotifications(false);
+    await updateNotificationState(true);
   };
   
   // Add new task
@@ -470,7 +534,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateTaskOrder,
       markNotificationsAsSeen,
       hasUnseenNotifications,
-      refreshTasks // Added refreshTasks to the context
+      refreshTasks,
+      getTaskColor,
     }}>
       {children}
     </TaskContext.Provider>
