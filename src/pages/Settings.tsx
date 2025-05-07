@@ -11,6 +11,16 @@ import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { AlertCircle, HelpCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import '@/types/google-api.d.ts';
 
 const Settings: React.FC = () => {
@@ -68,10 +78,59 @@ const Settings: React.FC = () => {
           <TabsContent value="integrations" className="space-y-6">
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Google OAuth Credentials</CardTitle>
-                <CardDescription>
-                  Enter your Google OAuth credentials to enable calendar integration
-                </CardDescription>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle>Google OAuth Credentials</CardTitle>
+                    <CardDescription>
+                      Enter your Google OAuth credentials to enable calendar integration
+                    </CardDescription>
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <HelpCircle className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Google OAuth Setup Guide</DialogTitle>
+                        <DialogDescription>
+                          Follow these steps to set up Google OAuth correctly
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Authentication Error?</AlertTitle>
+                          <AlertDescription>
+                            If you see an error like "Access blocked" or "App has not completed the Google verification process", 
+                            follow the steps below.
+                          </AlertDescription>
+                        </Alert>
+                        
+                        <h3 className="text-lg font-medium">Steps to Configure:</h3>
+                        <ol className="list-decimal ml-6 space-y-2">
+                          <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Google Cloud Console</a></li>
+                          <li>Create a new project or select an existing one</li>
+                          <li>Navigate to "APIs & Services" → "OAuth consent screen"</li>
+                          <li>Select "External" user type (unless you have a Google Workspace)</li>
+                          <li>Fill out the required app information</li>
+                          <li>Under "Test users" section, add your email address</li>
+                          <li>Go to "Credentials" and create an "OAuth client ID"</li>
+                          <li>For "Application type", select "Web application"</li>
+                          <li>Add your domain to "Authorized JavaScript origins"</li>
+                          <li>Add your domain + "/settings" to "Authorized redirect URIs"</li>
+                          <li>Save and copy the Client ID and Client Secret</li>
+                        </ol>
+                        
+                        <p className="text-sm text-muted-foreground mt-4">
+                          Note: While testing, you must use the same Google account that you added as a test user.
+                          Google verification is only required when you want to release your app to the public.
+                        </p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -99,8 +158,19 @@ const Settings: React.FC = () => {
                     This is kept securely in your browser's local storage
                   </p>
                 </div>
+                <Alert className="bg-amber-50 border-amber-200">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-800">Important OAuth Configuration</AlertTitle>
+                  <AlertDescription className="text-amber-700">
+                    During development, you must add your email address as a test user in the Google Cloud Console's OAuth consent screen.
+                    Otherwise, you'll see "App has not completed the Google verification process" errors.
+                  </AlertDescription>
+                </Alert>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="flex justify-between">
+                <Button variant="outline" onClick={() => window.open('https://console.cloud.google.com/apis/credentials', '_blank')}>
+                  Open Google Console
+                </Button>
                 <Button onClick={saveGoogleCredentials}>
                   Save Credentials
                 </Button>
