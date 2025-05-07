@@ -16,6 +16,11 @@ import {
 } from "@/components/ui/sheet";
 import { toast } from "./ui/sonner";
 import { useTaskContext } from "@/contexts/TaskContext";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,6 +32,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [notificationCount, setNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState<{
+    today: any[];
+    tomorrow: any[];
+  }>({ today: [], tomorrow: [] });
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [viewedNotifications, setViewedNotifications] = useState<string[]>([]);
   
   // Calculate notifications based on due dates
   useEffect(() => {
@@ -36,73 +47,48 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(23, 59, 59, 999);
+      tomorrow.setHours(0, 0, 0, 0);
       
-      const dueTodayCount = tasks.filter(task => {
+      const dueTodayTasks = tasks.filter(task => {
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === today.getTime();
-      }).length;
+      });
       
-      const dueTomorrowCount = tasks.filter(task => {
+      const dueTomorrowTasks = tasks.filter(task => {
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === tomorrow.getTime();
-      }).length;
+      });
       
-      setNotificationCount(dueTodayCount + dueTomorrowCount);
+      setNotifications({
+        today: dueTodayTasks,
+        tomorrow: dueTomorrowTasks
+      });
+      
+      // Calculate unviewed notification count
+      const unviewedCount = [...dueTodayTasks, ...dueTomorrowTasks]
+        .filter(task => !viewedNotifications.includes(task.id))
+        .length;
+      
+      setNotificationCount(unviewedCount);
     } else {
+      setNotifications({ today: [], tomorrow: [] });
       setNotificationCount(0);
     }
-  }, [tasks]);
+  }, [tasks, viewedNotifications]);
   
   const handleNotificationClick = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    setIsNotificationsOpen(!isNotificationsOpen);
     
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const dueTodayTasks = tasks.filter(task => {
-      const dueDate = new Date(task.dueDate);
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate.getTime() === today.getTime();
-    });
-    
-    const dueTomorrowTasks = tasks.filter(task => {
-      const dueDate = new Date(task.dueDate);
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate.getTime() === tomorrow.getTime();
-    });
-    
-    if (dueTodayTasks.length > 0) {
-      toast.warning(
-        dueTodayTasks.length === 1
-          ? `"${dueTodayTasks[0].title}" is due today!`
-          : `You have ${dueTodayTasks.length} tasks due today!`,
-        {
-          description: "Check your tasks to see what needs to be completed.",
-          duration: 5000,
-        }
-      );
-    }
-    
-    if (dueTomorrowTasks.length > 0) {
-      toast.info(
-        dueTomorrowTasks.length === 1
-          ? `"${dueTomorrowTasks[0].title}" is due tomorrow.`
-          : `You have ${dueTomorrowTasks.length} tasks due tomorrow.`,
-        {
-          description: "Plan ahead to complete these tasks on time.",
-          duration: 5000,
-        }
-      );
-    }
-    
-    if (dueTodayTasks.length === 0 && dueTomorrowTasks.length === 0) {
-      toast.success("All caught up!", {
-        description: "You have no tasks due today or tomorrow.",
+    if (!isNotificationsOpen) {
+      // Mark all notifications as viewed when opening
+      const allTaskIds = [...notifications.today, ...notifications.tomorrow].map(task => task.id);
+      setViewedNotifications(prevViewed => {
+        const uniqueIds = new Set([...prevViewed, ...allTaskIds]);
+        return Array.from(uniqueIds);
       });
+      setNotificationCount(0);
     }
   };
   
@@ -137,6 +123,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     onClick={() => handleNavigation("/")}
                   >
                     Dashboard
+                  </Button>
+                  <Button 
+                    variant={location.pathname === "/profile" ? "default" : "ghost"} 
+                    className="justify-start" 
+                    onClick={() => handleNavigation("/profile")}
+                  >
+                    Profile
+                  </Button>
+                  <Button 
+                    variant={location.pathname === "/settings" ? "default" : "ghost"} 
+                    className="justify-start" 
+                    onClick={() => handleNavigation("/settings")}
+                  >
+                    Settings
                   </Button>
                   <Button 
                     variant={location.pathname === "/auth" ? "default" : "ghost"} 
@@ -178,26 +178,78 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Badge>
           </div>
           <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="relative"
-              onClick={handleNotificationClick}
-            >
-              <BellRing className="h-5 w-5" />
-              {notificationCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
-                  {notificationCount}
-                </span>
-              )}
-            </Button>
+            <Popover open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="relative"
+                  onClick={handleNotificationClick}
+                >
+                  <BellRing className="h-5 w-5" />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
+                      {notificationCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="p-4 border-b">
+                  <h3 className="font-medium">Notifications</h3>
+                </div>
+                <div className="max-h-80 overflow-auto">
+                  {notifications.today.length === 0 && notifications.tomorrow.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      No upcoming tasks
+                    </div>
+                  ) : (
+                    <>
+                      {notifications.today.length > 0 && (
+                        <div>
+                          <div className="px-4 py-2 bg-gray-50">
+                            <h4 className="text-xs font-medium text-muted-foreground">TODAY</h4>
+                          </div>
+                          {notifications.today.map(task => (
+                            <div key={task.id} className="px-4 py-2 border-b hover:bg-gray-50">
+                              <p className="text-sm font-medium">{task.title}</p>
+                              <p className="text-xs text-muted-foreground">Due today</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {notifications.tomorrow.length > 0 && (
+                        <div>
+                          <div className="px-4 py-2 bg-gray-50">
+                            <h4 className="text-xs font-medium text-muted-foreground">TOMORROW</h4>
+                          </div>
+                          {notifications.tomorrow.map(task => (
+                            <div key={task.id} className="px-4 py-2 border-b hover:bg-gray-50">
+                              <p className="text-sm font-medium">{task.title}</p>
+                              <p className="text-xs text-muted-foreground">Due tomorrow</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="p-2 border-t flex justify-end">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setIsNotificationsOpen(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button 
               variant="outline" 
               className="gap-2 hidden md:flex"
               onClick={() => {
-                toast("Help & Support", {
-                  description: "Our support team will be available shortly.",
-                })
+                navigate('/settings');
               }}
             >
               <HelpCircle className="h-4 w-4" />
