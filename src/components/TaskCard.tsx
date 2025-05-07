@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Task } from "@/types/task";
 import { format, formatDistanceToNow, isToday, isTomorrow } from "date-fns";
@@ -138,7 +139,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
           {task.description && <p className={descriptionClassName}>{task.description}</p>}
         </div>
         <div className="flex gap-1">
-          {showScore && task.priorityScore && !isSubtask && (
+          {/* Show score for both main tasks and subtasks when score is available */}
+          {showScore && task.priorityScore !== undefined && (
             <Badge variant="outline" className="bg-primary-50 text-primary font-medium text-xs border border-primary/20">
               Score: {formatPriorityScore(task.priorityScore)}
             </Badge>

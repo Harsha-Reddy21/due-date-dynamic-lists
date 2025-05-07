@@ -189,12 +189,12 @@ const TaskList: React.FC<TaskListProps> = ({
                 </DialogContent>
               </Dialog>
               
-              {/* Render child tasks recursively if they exist */}
+              {/* Render child tasks recursively if they exist - now passing showScore prop */}
               {task.children && task.children.length > 0 && (
                 <div className="mt-2 mb-4">
                   <TaskList
                     tasks={task.children as TaskWithPriority[]}
-                    showScore={false}
+                    showScore={showScore}
                     nestingLevel={nestingLevel + 1}
                     parentId={task.id}
                   />
