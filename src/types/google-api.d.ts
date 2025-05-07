@@ -14,6 +14,9 @@ interface Window {
       calendar: {
         events: {
           list: (params: any) => Promise<any>;
+          insert: (params: any) => Promise<any>;
+          delete: (params: any) => Promise<any>;
+          update: (params: any) => Promise<any>;
         };
       };
     };
@@ -45,8 +48,30 @@ interface Window {
           scope: string;
           callback: (response: any) => void;
         }) => any;
-        revoke: (token: string) => void;
+        revoke: (token: string, callback?: () => void) => void;
+        TokenResponse: any;
       };
     };
   };
+}
+
+export interface GoogleCalendarEvent {
+  id?: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  start: {
+    dateTime: string;
+    timeZone?: string;
+  };
+  end: {
+    dateTime: string;
+    timeZone?: string;
+  };
+  colorId?: string;
+  recurrence?: string[];
+  attendees?: {
+    email: string;
+    responseStatus?: 'needsAction' | 'declined' | 'tentative' | 'accepted';
+  }[];
 }
