@@ -115,6 +115,9 @@ const TaskList: React.FC<TaskListProps> = ({
   // Only show sort button at the root level
   const shouldShowSortButton = nestingLevel === 0;
   
+  // Calculate left padding for nested tasks - improved indentation
+  const indentPadding = nestingLevel > 0 ? `ml-${nestingLevel * 4} pl-2` : '';
+  
   return (
     <DndContext
       sensors={sensors}
@@ -163,7 +166,10 @@ const TaskList: React.FC<TaskListProps> = ({
       <SortableContext items={sortedTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-3">
           {sortedTasks.map((task) => (
-            <div key={task.id} className={nestingLevel > 0 ? `pl-${nestingLevel * 4} ml-2 border-l-2 border-gray-100` : ''}>
+            <div 
+              key={task.id} 
+              className={`${nestingLevel > 0 ? 'border-l-2 border-l-gray-100 ml-4' : ''}`}
+            >
               <SortableTaskItem id={task.id}>
                 <TaskCard 
                   task={task} 
@@ -185,7 +191,7 @@ const TaskList: React.FC<TaskListProps> = ({
               
               {/* Render child tasks recursively if they exist */}
               {task.children && task.children.length > 0 && (
-                <div className="mt-2">
+                <div className="mt-2 mb-4">
                   <TaskList
                     tasks={task.children as TaskWithPriority[]}
                     showScore={false}

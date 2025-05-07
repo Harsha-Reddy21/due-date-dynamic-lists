@@ -38,12 +38,22 @@
 
     --radius: 0.5rem;
 
-    /* Priority colors */
-    --priority-1: 210 100% 70%; /* Light blue - lowest */
-    --priority-2: 262 83% 75%; /* Light purple */
-    --priority-3: 262 83% 62%; /* Medium purple */
-    --priority-4: 262 83% 50%; /* Dark purple */
+    /* Priority colors - enhanced */
+    --priority-1: 200 100% 70%; /* Sky blue - lowest */
+    --priority-2: 210 100% 60%; /* Blue */
+    --priority-3: 43 100% 70%; /* Amber */
+    --priority-4: 30 100% 60%; /* Orange */
     --priority-5: 0 84% 60%; /* Red - highest */
+    
+    /* Task color palette */
+    --task-color-1: 210 100% 70%;
+    --task-color-2: 262 83% 75%;
+    --task-color-3: 340 83% 75%;
+    --task-color-4: 165 83% 75%;
+    --task-color-5: 43 83% 75%;
+    --task-color-6: 30 83% 75%;
+    --task-color-7: 280 83% 75%;
+    --task-color-8: 190 83% 75%;
   }
 
   .dark {
@@ -138,12 +148,12 @@
   
   /* Task indentation - improved for subtasks */
   .task-nested {
-    @apply pl-4 border-l-2 border-gray-100;
+    @apply pl-6 border-l-2 border-gray-100;
   }
   
-  /* Subtask specific styling */
+  /* Subtask specific styling - enhanced */
   .subtask {
-    @apply text-xs;
+    @apply text-xs bg-gray-50 border border-dashed border-gray-200;
   }
   
   .subtask-title {
@@ -151,7 +161,20 @@
   }
   
   .subtask-description {
-    @apply text-xs text-gray-500;
+    @apply text-[10px] text-gray-500;
+  }
+  
+  /* Enhanced indentation for subtasks */
+  .subtask-indent-1 {
+    @apply ml-4 pl-2 border-l-2 border-gray-100;
+  }
+  
+  .subtask-indent-2 {
+    @apply ml-6 pl-2 border-l-2 border-gray-200;
+  }
+  
+  .subtask-indent-3 {
+    @apply ml-8 pl-2 border-l-2 border-gray-300;
   }
 }
 
@@ -176,7 +199,7 @@
     @apply bg-[hsl(var(--priority-5))];
   }
   
-  /* Task and subtask styling */
+  /* Task and subtask styling - enhanced */
   .task-card {
     @apply border border-gray-200 rounded-lg p-3 bg-white hover:shadow-sm transition-all;
   }
@@ -193,8 +216,29 @@
     @apply flex items-center gap-2 text-xs mt-2;
   }
   
-  /* Subtask specific styling */
+  /* Subtask specific styling - enhanced */
   .subtask-card {
-    @apply border border-gray-100 rounded-lg p-2 bg-white;
+    @apply border border-gray-100 border-dashed rounded-lg p-2 bg-gray-50/60 ml-4;
+  }
+  
+  /* Priority badge colors */
+  .priority-badge-1 {
+    @apply bg-sky-100 text-sky-800 border-sky-200;
+  }
+  
+  .priority-badge-2 {
+    @apply bg-blue-100 text-blue-800 border-blue-200;
+  }
+  
+  .priority-badge-3 {
+    @apply bg-amber-100 text-amber-800 border-amber-200;
+  }
+  
+  .priority-badge-4 {
+    @apply bg-orange-100 text-orange-800 border-orange-200;
+  }
+  
+  .priority-badge-5 {
+    @apply bg-red-100 text-red-800 border-red-200;
   }
 }

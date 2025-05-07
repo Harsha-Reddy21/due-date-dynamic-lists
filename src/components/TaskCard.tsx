@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Task } from "@/types/task";
 import { format, formatDistanceToNow, isToday, isTomorrow } from "date-fns";
@@ -41,7 +40,7 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtask, isSubtask = false }) => {
-  const { deleteTask } = useTaskContext();
+  const { deleteTask, getTaskColor } = useTaskContext();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   // Format the due date to a relative time (e.g., "in 2 days", "2 days ago")
@@ -55,12 +54,12 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
   // Get the priority color based on the weight
   const getPriorityColor = (weight: number) => {
     switch (weight) {
-      case 1: return "bg-gray-100 text-gray-800";
-      case 2: return "bg-blue-100 text-blue-800";
-      case 3: return "bg-amber-100 text-amber-800";
-      case 4: return "bg-orange-100 text-orange-800";
-      case 5: return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
+      case 1: return "bg-sky-100 text-sky-800 border-sky-200";
+      case 2: return "bg-blue-100 text-blue-800 border-blue-200";
+      case 3: return "bg-amber-100 text-amber-800 border-amber-200";
+      case 4: return "bg-orange-100 text-orange-800 border-orange-200";
+      case 5: return "bg-red-100 text-red-800 border-red-200";
+      default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
   
@@ -75,38 +74,38 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
     
     // If due date is today or in the past
     if (dueTime <= todayTime) {
-      return "bg-red-100 text-red-800";
+      return "bg-red-100 text-red-800 border-red-200";
     }
     
     // If due date is tomorrow
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     if (dueTime === tomorrow.getTime()) {
-      return "bg-orange-100 text-orange-800";
+      return "bg-orange-100 text-orange-800 border-orange-200";
     }
     
     // If due date is within the next 3 days
     const threeDays = new Date(today);
     threeDays.setDate(threeDays.getDate() + 3);
     if (dueTime <= threeDays.getTime()) {
-      return "bg-amber-100 text-amber-800";
+      return "bg-amber-100 text-amber-800 border-amber-200";
     }
     
     // Otherwise, it's not urgent
-    return "bg-green-100 text-green-800";
+    return "bg-green-100 text-green-800 border-green-200";
   };
 
   const handleDelete = () => {
     deleteTask(task.id);
   };
   
-  // Apply different styles for subtasks
-  const { getTaskColor } = useTaskContext();
+  // Get unique color for the task based on its ID
   const taskColor = getTaskColor(task.id);
   
+  // Apply different styles for subtasks - improved with more visual distinction and reduced sizes
   const titleClassName = isSubtask 
     ? "font-medium text-xs text-gray-700"
-    : `font-medium text-sm text-gray-800 bg-[${taskColor}] bg-opacity-10 px-2 py-1 rounded-md`;
+    : "font-medium text-sm text-gray-800";
   
   const descriptionClassName = isSubtask
     ? "text-xs text-gray-500 mt-0.5"
@@ -115,35 +114,50 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
   const badgeClassName = isSubtask
     ? "text-[10px] px-1.5 py-0.5"
     : "text-xs px-2 py-1";
-    
+
+  // Determine border and background styles based on priority
+  const priorityBorderStyle = `border-l-4 border-l-[${taskColor}]`;
+  
   return (
-    <div className={`flex flex-col p-3 border rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow ${isSubtask ? 'border-gray-100 border-dashed' : 'border-gray-200 border-solid'}`}>
+    <div 
+      className={`flex flex-col p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow ${
+        isSubtask 
+          ? 'border border-gray-100 border-dashed bg-gray-50/60 mt-1.5 ml-4' 
+          : `border border-gray-200 border-solid bg-white ${priorityBorderStyle}`
+      }`}
+      style={isSubtask ? {} : { borderLeftColor: taskColor }}
+    >
       <div className="flex justify-between items-start mb-1">
         <div>
-          <h3 className={titleClassName}>{task.title}</h3>
+          <h3 
+            className={titleClassName}
+            style={isSubtask ? {} : { color: taskColor }}
+          >
+            {task.title}
+          </h3>
           {task.description && <p className={descriptionClassName}>{task.description}</p>}
         </div>
         <div className="flex gap-1">
           {showScore && task.priorityScore && !isSubtask && (
-            <Badge variant="outline" className="bg-primary-50 text-primary font-medium text-xs">
+            <Badge variant="outline" className="bg-primary-50 text-primary font-medium text-xs border border-primary/20">
               Score: {formatPriorityScore(task.priorityScore)}
             </Badge>
           )}
           
-          <Badge className={`${badgeClassName} ${getPriorityColor(task.weight)}`}>
-            Priority: {task.weight}
+          <Badge className={`${badgeClassName} ${getPriorityColor(task.weight)} border`}>
+            P{task.weight}
           </Badge>
         </div>
       </div>
       
       <div className="flex justify-between items-center mt-1">
         <div className="flex gap-1">
-          <Badge variant="outline" className={`${badgeClassName} ${getDueDateColor()}`}>
+          <Badge variant="outline" className={`${badgeClassName} ${getDueDateColor()} border`}>
             <CalendarIcon className="mr-1 h-2.5 w-2.5" />
             {formattedDueDate}
           </Badge>
           
-          <Badge variant="outline" className={`${badgeClassName} bg-gray-50 text-gray-700`}>
+          <Badge variant="outline" className={`${badgeClassName} bg-gray-50 text-gray-700 border border-gray-200`}>
             <Clock className="mr-1 h-2.5 w-2.5" />
             {formattedTime}
           </Badge>

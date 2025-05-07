@@ -88,10 +88,10 @@ const Dashboard: React.FC = () => {
       </div>
       
       <div className="flex flex-col gap-8">
-        {/* Priority Tasks Section */}
+        {/* Priority Tasks Section - Renamed */}
         <div>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold">Today's Priorities</h2>
+            <h2 className="text-2xl font-semibold">Your Tasks</h2>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="shadow-sm">
@@ -114,7 +114,7 @@ const Dashboard: React.FC = () => {
                 <span className="bg-primary/10 p-1.5 rounded-md mr-2">
                   <ListChecks className="h-4 w-4 text-primary"/>
                 </span>
-                Today's Focus (Top 5)
+                Top-5 Urgent Tasks
               </CardTitle>
             </CardHeader>
             <CardContent className="px-0 pb-0">
