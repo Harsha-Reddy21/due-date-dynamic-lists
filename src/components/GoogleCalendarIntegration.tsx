@@ -463,10 +463,12 @@ const GoogleCalendarIntegration = () => {
               // Update the task with the calendar event ID
               if (calendarEventId) {
                 try {
+                  // Note: We're using camelCase for the task fields in our code,
+                  // but the database uses snake_case
                   await supabase
                     .from('tasks')
                     .update({ 
-                      calendar_event_id: calendarEventId // This is what causes the TS error
+                      calendar_event_id: calendarEventId
                     })
                     .eq('id', task.id);
                   
