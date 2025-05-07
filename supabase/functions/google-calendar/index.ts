@@ -1,11 +1,11 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.33.1';
 
 // Configuration - in a real app, store these in Edge Function secrets
 const CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "YOUR_GOOGLE_CLIENT_ID";
 const CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET") || "YOUR_GOOGLE_CLIENT_SECRET";
-const REDIRECT_URI = Deno.env.get("GOOGLE_REDIRECT_URI") || "http://localhost:3000/settings";
+// Default redirect URI - will be overridden by the one from the request
+const DEFAULT_REDIRECT_URI = Deno.env.get("GOOGLE_REDIRECT_URI") || "http://localhost:3000/settings";
 const SCOPES = "https://www.googleapis.com/auth/calendar.events";
 
 // Create a structured error response
@@ -150,10 +150,13 @@ serve(async (req) => {
         return createErrorResponse(401, error || 'Unauthorized');
       }
       
+      // Get the redirect URI from the query parameter or use the default
+      const redirectUri = url.searchParams.get('redirect_uri') || DEFAULT_REDIRECT_URI;
+      
       // Build auth URL
       const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       authUrl.searchParams.set('client_id', CLIENT_ID);
-      authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+      authUrl.searchParams.set('redirect_uri', redirectUri);
       authUrl.searchParams.set('response_type', 'code');
       authUrl.searchParams.set('scope', SCOPES);
       authUrl.searchParams.set('access_type', 'offline');
@@ -174,6 +177,7 @@ serve(async (req) => {
       }
       
       const code = url.searchParams.get('code');
+      const redirectUri = url.searchParams.get('redirect_uri') || DEFAULT_REDIRECT_URI;
       const state = url.searchParams.get('state');
       
       if (!code) {
@@ -190,7 +194,7 @@ serve(async (req) => {
           code,
           client_id: CLIENT_ID,
           client_secret: CLIENT_SECRET,
-          redirect_uri: REDIRECT_URI,
+          redirect_uri: redirectUri,
           grant_type: 'authorization_code',
         }),
       });

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -15,6 +14,9 @@ import '@/types/google-api.d.ts';
 const EDGE_FUNCTION_URL = import.meta.env.VITE_SUPABASE_URL 
   ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar`
   : 'http://localhost:54321/functions/v1/google-calendar';
+
+// Get the current hostname dynamically for redirect URI
+const REDIRECT_URI = window.location.origin + '/settings';
 
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -86,7 +88,7 @@ const GoogleCalendarIntegration = () => {
     
     try {
       // Exchange authorization code for tokens using our Edge Function
-      const response = await fetch(`${EDGE_FUNCTION_URL}/auth/callback?code=${code}`, {
+      const response = await fetch(`${EDGE_FUNCTION_URL}/auth/callback?code=${code}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
@@ -135,8 +137,8 @@ const GoogleCalendarIntegration = () => {
     setError(null);
     
     try {
-      // Redirect to login endpoint on our Edge Function
-      const response = await fetch(`${EDGE_FUNCTION_URL}/login`, {
+      // Redirect to login endpoint on our Edge Function with explicit redirect URI
+      const response = await fetch(`${EDGE_FUNCTION_URL}/login?redirect_uri=${encodeURIComponent(REDIRECT_URI)}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
