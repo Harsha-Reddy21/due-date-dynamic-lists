@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -413,11 +412,7 @@ const GoogleCalendarIntegration = () => {
   );
 };
 
-// Add this to the global Window interface
-declare global {
-  interface Window {
-    gapi: any;
-  }
-}
+// IMPORTANT: Removing the duplicate Window interface declaration
+// The correct declaration is already in src/types/google-api.d.ts
 
 export default GoogleCalendarIntegration;

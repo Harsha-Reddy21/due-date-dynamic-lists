@@ -81,6 +81,7 @@ const EditTaskForm: React.FC<EditTaskFormProps> = ({ task, onSubmit }) => {
         dueDate: values.dueDate.toISOString(),
         weight: parseInt(values.weight) as Weight,
         parentId: values.parentId,
+        completed: task.completed, // Keep the existing completed status
       });
       
       // Call onSubmit callback if provided

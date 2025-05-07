@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
@@ -112,6 +113,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
+          completed: task.completed || false, // Adding with a default value
         }));
         
         setFlatTasks(formattedTasks);
@@ -194,7 +196,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: task.title,
             description: task.description,
             due_date: task.dueDate,
-            weight: task.weight
+            weight: task.weight,
+            completed: task.completed || false // Adding with a default value
           }
         ])
         .select()

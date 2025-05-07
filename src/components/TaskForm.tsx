@@ -81,6 +81,7 @@ const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, parentId = null }) => {
         dueDate: values.dueDate.toISOString(),
         weight: parseInt(values.weight) as Weight,
         parentId: values.parentId,
+        completed: false, // Adding the completed property
       });
       
       // Reset form
