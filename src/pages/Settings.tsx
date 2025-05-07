@@ -26,7 +26,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-// Import Google API types - make sure this path is correct
+// Import Google API types - this will ensure TypeScript knows about window.gapi and window.google
 import '@/types/google-api.d.ts';
 
 const integrationFormSchema = z.object({
