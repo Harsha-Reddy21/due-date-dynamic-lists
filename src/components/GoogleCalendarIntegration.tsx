@@ -467,7 +467,7 @@ const GoogleCalendarIntegration = () => {
                   // but the database uses snake_case
                   await supabase
                     .from('tasks')
-                    .update({ 
+                    .update({
                       calendar_event_id: calendarEventId
                     })
                     .eq('id', task.id);

@@ -35,6 +35,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          calendar_event_id: string | null
           completed: boolean | null
           created_at: string
           description: string | null
@@ -47,6 +48,7 @@ export type Database = {
           weight: number
         }
         Insert: {
+          calendar_event_id?: string | null
           completed?: boolean | null
           created_at?: string
           description?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           weight?: number
         }
         Update: {
+          calendar_event_id?: string | null
           completed?: boolean | null
           created_at?: string
           description?: string | null
