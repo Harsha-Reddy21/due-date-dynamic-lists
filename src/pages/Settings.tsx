@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -27,7 +26,7 @@ import * as z from "zod";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 // Import Google API types - this will ensure TypeScript knows about window.gapi and window.google
-import '@/types/google-api.d.ts';
+import '@/types/google-api';
 
 const integrationFormSchema = z.object({
   clientId: z.string().min(1, "Client ID is required"),
