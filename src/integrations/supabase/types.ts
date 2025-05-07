@@ -35,6 +35,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          completed: boolean | null
           created_at: string
           description: string | null
           due_date: string | null
@@ -46,6 +47,7 @@ export type Database = {
           weight: number
         }
         Insert: {
+          completed?: boolean | null
           created_at?: string
           description?: string | null
           due_date?: string | null
@@ -57,6 +59,7 @@ export type Database = {
           weight?: number
         }
         Update: {
+          completed?: boolean | null
           created_at?: string
           description?: string | null
           due_date?: string | null
@@ -76,6 +79,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string | null
+          google_api_key: string | null
+          google_client_id: string | null
+          google_last_sync: string | null
+          id: string
+          is_google_connected: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          google_api_key?: string | null
+          google_client_id?: string | null
+          google_last_sync?: string | null
+          id?: string
+          is_google_connected?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          google_api_key?: string | null
+          google_client_id?: string | null
+          google_last_sync?: string | null
+          id?: string
+          is_google_connected?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

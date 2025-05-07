@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -7,6 +8,7 @@ import { toast } from './ui/sonner';
 import { useTaskContext } from '@/contexts/TaskContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Progress } from './ui/progress';
+import { supabase } from '@/integrations/supabase/client';
 
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -15,36 +17,57 @@ const GoogleCalendarIntegration = () => {
   const [syncProgress, setSyncProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const [clientId, setClientId] = useState<string>("");
+  const [apiKey, setApiKey] = useState<string>("");
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
-  // Get credentials from localStorage (set in Settings page)
-  const CLIENT_ID = localStorage.getItem('GOOGLE_CLIENT_ID') || '';
-  const API_KEY = localStorage.getItem('GOOGLE_API_KEY') || '';
   const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
   const REDIRECT_URI = window.location.origin;
 
-  // Check credentials on component mount
+  // Fetch user settings from Supabase
   useEffect(() => {
-    // Verify saved connection status
-    const isGoogleConnected = localStorage.getItem('google_calendar_connected');
-    const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
+    if (!user) return;
     
-    if (isGoogleConnected === 'true') {
-      setIsConnected(true);
-      if (lastSyncTime) {
-        setLastSynced(lastSyncTime);
+    const fetchUserSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // No settings found
+            setError("Google Calendar credentials not found. Please add your credentials in Settings.");
+            return;
+          }
+          throw error;
+        }
+        
+        // Set credentials from Supabase
+        if (data) {
+          setClientId(data.google_client_id || "");
+          setApiKey(data.google_api_key || "");
+          setIsConnected(data.is_google_connected || false);
+          setLastSynced(data.google_last_sync || null);
+          
+          if (!data.google_client_id || !data.google_api_key) {
+            setError("Google Calendar credentials not found. Please add your credentials in Settings.");
+          } else {
+            setError(null);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching user settings:", err);
+        setError("Failed to load Google Calendar settings");
       }
-    }
+    };
     
-    // Check if credentials exist
-    if (!CLIENT_ID || !API_KEY) {
-      setError("Google Calendar credentials not found. Please add your credentials in Settings.");
-    } else {
-      setError(null);
-    }
-  }, [CLIENT_ID, API_KEY]);
+    fetchUserSettings();
+  }, [user]);
 
   // Check if we're in the OAuth callback
   useEffect(() => {
@@ -64,23 +87,13 @@ const GoogleCalendarIntegration = () => {
       handleOAuthCallback(code);
       // Remove the code from the URL to prevent reprocessing on refresh
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-      // Check local storage for connection status
-      const isGoogleConnected = localStorage.getItem('google_calendar_connected');
-      if (isGoogleConnected === 'true') {
-        setIsConnected(true);
-        const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
-        if (lastSyncTime) {
-          setLastSynced(lastSyncTime);
-        }
-      }
     }
   }, []);
 
   // Load Google API client library if needed
   useEffect(() => {
-    // Skip if already connected or connecting
-    if (isConnected || isConnecting) return;
+    // Skip if already connected, connecting, or missing credentials
+    if (isConnected || isConnecting || !clientId || !apiKey) return;
 
     let scriptLoaded = false;
     const checkGoogleAPI = () => {
@@ -112,7 +125,7 @@ const GoogleCalendarIntegration = () => {
     // Poll for Google API to be loaded
     const interval = setInterval(checkGoogleAPI, 100);
     return () => clearInterval(interval);
-  }, [isConnected, isConnecting]);
+  }, [isConnected, isConnecting, clientId, apiKey]);
 
   const initializeGoogleAPI = () => {
     if (!window.gapi) return;
@@ -126,12 +139,12 @@ const GoogleCalendarIntegration = () => {
   };
 
   const initClient = () => {
-    if (!window.gapi) return;
+    if (!window.gapi || !clientId || !apiKey) return;
     
     try {
       window.gapi.client.init({
-        apiKey: API_KEY,
-        clientId: CLIENT_ID,
+        apiKey: apiKey,
+        clientId: clientId,
         discoveryDocs: DISCOVERY_DOCS,
         scope: SCOPES
       }).then(() => {
@@ -154,21 +167,34 @@ const GoogleCalendarIntegration = () => {
     }
   };
 
-  const updateSigninStatus = (isSignedIn: boolean) => {
+  const updateSigninStatus = async (isSignedIn: boolean) => {
     setIsConnected(isSignedIn);
-    localStorage.setItem('google_calendar_connected', isSignedIn.toString());
     
-    if (isSignedIn) {
-      toast.success("Google Calendar connected successfully!", {
-        description: "You can now sync your tasks with your Google Calendar"
-      });
-    } else {
-      localStorage.removeItem('google_calendar_last_sync');
-      setLastSynced(null);
+    if (!user) return;
+    
+    // Update connection status in Supabase
+    try {
+      await supabase
+        .from('user_settings')
+        .update({
+          is_google_connected: isSignedIn,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+        
+      if (isSignedIn) {
+        toast.success("Google Calendar connected successfully!", {
+          description: "You can now sync your tasks with your Google Calendar"
+        });
+      }
+    } catch (error) {
+      console.error("Error updating Google connection status:", error);
     }
   };
 
   const handleOAuthCallback = async (code: string) => {
+    if (!user) return;
+    
     setIsConnecting(true);
     setError(null);
     
@@ -179,7 +205,15 @@ const GoogleCalendarIntegration = () => {
       
       // Simulate successful connection
       setIsConnected(true);
-      localStorage.setItem('google_calendar_connected', 'true');
+      
+      // Update connection status in Supabase
+      await supabase
+        .from('user_settings')
+        .update({
+          is_google_connected: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
       
       toast.success("Google Calendar connected successfully!", {
         description: "You can now sync your tasks with your Google Calendar"
@@ -188,16 +222,20 @@ const GoogleCalendarIntegration = () => {
       console.error("Error connecting to Google Calendar:", err);
       setError("Failed to connect to Google Calendar. Please try again.");
       toast.error("Failed to connect to Google Calendar");
-      localStorage.setItem('google_calendar_connected', 'false');
     } finally {
       setIsConnecting(false);
     }
   };
 
   const handleConnect = () => {
+    if (!user) {
+      toast.error("You must be logged in to connect Google Calendar");
+      return;
+    }
+    
     setError(null);
     
-    if (!CLIENT_ID || CLIENT_ID === 'YOUR_CLIENT_ID') {
+    if (!clientId || clientId === 'YOUR_CLIENT_ID') {
       toast.error("Google Calendar integration is not properly configured", {
         description: "Please configure your Google API credentials in the application settings."
       });
@@ -221,7 +259,7 @@ const GoogleCalendarIntegration = () => {
           });
       } else {
         // Fallback to manual OAuth if Google API isn't loaded
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(CLIENT_ID)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
         window.location.href = authUrl;
       }
     } catch (error) {
@@ -232,27 +270,50 @@ const GoogleCalendarIntegration = () => {
     }
   };
 
-  const handleDisconnect = () => {
-    // Sign out of Google
-    if (window.gapi && window.gapi.auth2) {
-      window.gapi.auth2.getAuthInstance().signOut().then(() => {
-        localStorage.removeItem('google_calendar_connected');
-        localStorage.removeItem('google_calendar_last_sync');
-        setLastSynced(null);
-        setIsConnected(false);
-        toast.success("Disconnected from Google Calendar");
-      });
-    } else {
-      // Fallback if Google API isn't loaded
-      localStorage.removeItem('google_calendar_connected');
-      localStorage.removeItem('google_calendar_last_sync');
-      setLastSynced(null);
+  const handleDisconnect = async () => {
+    if (!user) {
+      toast.error("You must be logged in to disconnect Google Calendar");
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      // Sign out of Google
+      if (window.gapi && window.gapi.auth2) {
+        const authInstance = window.gapi.auth2.getAuthInstance();
+        if (authInstance) {
+          await authInstance.signOut();
+        }
+      }
+      
+      // Update connection status in Supabase
+      await supabase
+        .from('user_settings')
+        .update({
+          is_google_connected: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+        
       setIsConnected(false);
+      setLastSynced(null);
+      
       toast.success("Disconnected from Google Calendar");
+    } catch (error) {
+      console.error("Error disconnecting from Google:", error);
+      toast.error("Failed to disconnect Google Calendar");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSyncTasks = async () => {
+    if (!user) {
+      toast.error("You must be logged in to sync tasks");
+      return;
+    }
+    
     if (!isConnected) {
       toast.error("Please connect to Google Calendar first");
       return;
@@ -301,10 +362,17 @@ const GoogleCalendarIntegration = () => {
       // Final progress update
       setSyncProgress(100);
       
-      // Update last synced time
-      const now = new Date().toLocaleString();
+      // Update last synced time in Supabase
+      const now = new Date().toISOString();
       setLastSynced(now);
-      localStorage.setItem('google_calendar_last_sync', now);
+      
+      await supabase
+        .from('user_settings')
+        .update({
+          google_last_sync: now,
+          updated_at: now
+        })
+        .eq('user_id', user.id);
       
       setTimeout(() => {
         setIsSyncing(false);
@@ -332,17 +400,31 @@ const GoogleCalendarIntegration = () => {
     }
   };
 
-  const handleRefreshCalendar = () => {
+  const handleRefreshCalendar = async () => {
+    if (!user) {
+      toast.error("You must be logged in to refresh calendar data");
+      return;
+    }
+    
     toast.info("Refreshing calendar data...");
     
     // Simulate fetching calendar events
-    setTimeout(() => {
+    setTimeout(async () => {
+      // Update last synced time in Supabase
+      const now = new Date().toISOString();
+      setLastSynced(now);
+      
+      await supabase
+        .from('user_settings')
+        .update({
+          google_last_sync: now,
+          updated_at: now
+        })
+        .eq('user_id', user.id);
+      
       toast.success("Calendar refreshed successfully", {
         description: "Your calendar is now up to date"
       });
-      const now = new Date().toLocaleString();
-      setLastSynced(now);
-      localStorage.setItem('google_calendar_last_sync', now);
     }, 1500);
   };
 
@@ -358,7 +440,7 @@ const GoogleCalendarIntegration = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {(!CLIENT_ID || !API_KEY) && (
+        {(!clientId || !apiKey) && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Missing Credentials</AlertTitle>
@@ -368,7 +450,7 @@ const GoogleCalendarIntegration = () => {
           </Alert>
         )}
         
-        {error && CLIENT_ID && API_KEY && (
+        {error && clientId && apiKey && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -384,7 +466,7 @@ const GoogleCalendarIntegration = () => {
               <AlertDescription className="text-green-700">
                 Your account is connected to Google Calendar. You can now sync your tasks.
                 {lastSynced && (
-                  <p className="mt-2 text-sm">Last synced: {lastSynced}</p>
+                  <p className="mt-2 text-sm">Last synced: {new Date(lastSynced).toLocaleString()}</p>
                 )}
               </AlertDescription>
             </Alert>
@@ -428,7 +510,7 @@ const GoogleCalendarIntegration = () => {
             </div>
             <Button 
               onClick={handleSyncTasks} 
-              disabled={isSyncing || !CLIENT_ID || !API_KEY}
+              disabled={isSyncing || !clientId || !apiKey}
             >
               <Calendar className="mr-2 h-4 w-4" />
               {isSyncing ? `Syncing (${Math.round(syncProgress)}%)` : "Sync Tasks"}
@@ -437,7 +519,7 @@ const GoogleCalendarIntegration = () => {
         ) : (
           <Button 
             onClick={handleConnect} 
-            disabled={isConnecting || !CLIENT_ID || !API_KEY}
+            disabled={isConnecting || !clientId || !apiKey}
           >
             <Calendar className="mr-2 h-4 w-4" />
             {isConnecting ? "Connecting..." : "Connect Google Calendar"}
@@ -447,8 +529,5 @@ const GoogleCalendarIntegration = () => {
     </Card>
   );
 };
-
-// IMPORTANT: Removing the duplicate Window interface declaration
-// The correct declaration is already in src/types/google-api.d.ts
 
 export default GoogleCalendarIntegration;

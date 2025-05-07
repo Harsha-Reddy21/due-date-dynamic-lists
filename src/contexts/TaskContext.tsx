@@ -90,9 +90,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
-          // Fix: Handle the case when completed property doesn't exist in the database schema
-          // The completed property may not exist in the database schema, so set it to false by default
-          completed: task.completed !== undefined ? task.completed : false,
+          // The completed property exists in the database schema now that we've added it
+          completed: Boolean(task.completed),
         }));
         
         setFlatTasks(formattedTasks);
@@ -211,6 +210,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
       if (updates.weight !== undefined) dbUpdates.weight = updates.weight;
       if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId;
+      if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
       
       const { error } = await supabase
         .from('tasks')

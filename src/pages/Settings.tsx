@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Form,
   FormControl,
@@ -42,18 +42,67 @@ const Settings: React.FC = () => {
   const form = useForm<IntegrationFormValues>({
     resolver: zodResolver(integrationFormSchema),
     defaultValues: {
-      clientId: localStorage.getItem("GOOGLE_CLIENT_ID") || "",
-      apiKey: localStorage.getItem("GOOGLE_API_KEY") || "",
+      clientId: "",
+      apiKey: "",
     },
   });
   
+  // Load user settings from Supabase
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchUserSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // No settings found, create a new entry
+            const { error: insertError } = await supabase
+              .from('user_settings')
+              .insert([{ user_id: user.id }]);
+              
+            if (insertError) throw insertError;
+          } else {
+            throw error;
+          }
+        } else if (data) {
+          // Set form values from Supabase
+          form.setValue('clientId', data.google_client_id || '');
+          form.setValue('apiKey', data.google_api_key || '');
+          setIsGoogleConnected(data.is_google_connected || false);
+        }
+      } catch (error) {
+        console.error('Error fetching user settings:', error);
+      }
+    };
+    
+    fetchUserSettings();
+  }, [user, form]);
+  
   const handleGoogleConnect = async (values: IntegrationFormValues) => {
+    if (!user) {
+      toast.error("You must be logged in to connect Google Calendar");
+      return;
+    }
+    
     try {
       setIsLoading(true);
       
-      // Save credentials to localStorage
-      localStorage.setItem("GOOGLE_CLIENT_ID", values.clientId);
-      localStorage.setItem("GOOGLE_API_KEY", values.apiKey);
+      // Save credentials to Supabase
+      const { error } = await supabase
+        .from('user_settings')
+        .update({
+          google_client_id: values.clientId,
+          google_api_key: values.apiKey,
+        })
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
       
       // Load the Google API client library
       if (!window.gapi) {
@@ -82,9 +131,28 @@ const Settings: React.FC = () => {
       
       if (!authInstance.isSignedIn.get()) {
         await authInstance.signIn();
+        
+        // Update connection status in Supabase
+        await supabase
+          .from('user_settings')
+          .update({
+            is_google_connected: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+          
         toast.success("Google Calendar connected successfully");
         setIsGoogleConnected(true);
       } else {
+        // Update connection status in Supabase
+        await supabase
+          .from('user_settings')
+          .update({
+            is_google_connected: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+          
         toast.info("Already connected to Google Calendar");
         setIsGoogleConnected(true);
       }
@@ -99,6 +167,11 @@ const Settings: React.FC = () => {
   };
   
   const handleGoogleDisconnect = async () => {
+    if (!user) {
+      toast.error("You must be logged in to disconnect Google Calendar");
+      return;
+    }
+    
     try {
       setIsLoading(true);
       
@@ -106,6 +179,16 @@ const Settings: React.FC = () => {
         const authInstance = window.gapi.auth2.getAuthInstance();
         if (authInstance) {
           await authInstance.signOut();
+          
+          // Update connection status in Supabase
+          await supabase
+            .from('user_settings')
+            .update({
+              is_google_connected: false,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', user.id);
+            
           toast.success("Disconnected from Google Calendar");
           setIsGoogleConnected(false);
         }
