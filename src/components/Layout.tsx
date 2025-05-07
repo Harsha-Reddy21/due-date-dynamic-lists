@@ -28,7 +28,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { tasks, markNotificationsAsSeen } = useTaskContext();
+  const { tasks, markNotificationsAsSeen, hasUnseenNotifications } = useTaskContext();
   const location = useLocation();
   const navigate = useNavigate();
   const [notificationCount, setNotificationCount] = useState(0);
@@ -69,7 +69,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       });
 
       // Only update notification count if notifications haven't been seen
-      const { hasUnseenNotifications } = useTaskContext();
       setNotificationCount(hasUnseenNotifications ? dueTodayTasks.length + dueTomorrowTasks.length : 0);
       
       // Show notification toast only once per session
@@ -102,7 +101,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setNotifications({ today: [], tomorrow: [] });
       setNotificationCount(0);
     }
-  }, [tasks, notificationsShown]);
+  }, [tasks, notificationsShown, hasUnseenNotifications]);
   
   const handleNotificationClick = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
