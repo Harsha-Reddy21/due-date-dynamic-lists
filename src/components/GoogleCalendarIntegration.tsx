@@ -80,8 +80,11 @@ const GoogleCalendarIntegration = () => {
   
   const initializeGapiClient = async () => {
     try {
+      // Get API key from local storage or environment
+      const apiKey = import.meta.env.VITE_GOOGLE_API_KEY || '';
+      
       await window.gapi.client.init({
-        apiKey: API_KEY,
+        apiKey: apiKey,
         discoveryDocs: [DISCOVERY_DOC],
       });
       
@@ -105,8 +108,16 @@ const GoogleCalendarIntegration = () => {
         return;
       }
       
+      // Get Client ID from local storage
+      const clientId = localStorage.getItem('google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+      
+      if (!clientId) {
+        setError('Google Client ID not found. Please set it in the Settings tab.');
+        return;
+      }
+      
       const tokenClientInstance = window.google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
+        client_id: clientId,
         scope: SCOPES,
         callback: handleTokenResponse,
       });
@@ -148,6 +159,15 @@ const GoogleCalendarIntegration = () => {
   const handleConnect = () => {
     setIsConnecting(true);
     setError(null);
+    
+    // Check if Google Client ID is set
+    const clientId = localStorage.getItem('google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    if (!clientId) {
+      toast.error('Google Client ID not found. Please set it in the Settings tab.');
+      setError('Google Client ID not set. Go to the Settings tab to configure it.');
+      setIsConnecting(false);
+      return;
+    }
     
     if (!tokenClient) {
       toast.error('Google Calendar API is not initialized yet. Please try again.');
@@ -409,6 +429,11 @@ const GoogleCalendarIntegration = () => {
               <AlertTitle>Not Connected</AlertTitle>
               <AlertDescription>
                 You need to connect your Google account to sync your tasks with Google Calendar.
+                {!localStorage.getItem('google_client_id') && (
+                  <p className="mt-2 text-sm font-medium text-amber-600">
+                    Please set your Google Client ID in the settings above first.
+                  </p>
+                )}
               </AlertDescription>
             </Alert>
           </div>
@@ -438,7 +463,7 @@ const GoogleCalendarIntegration = () => {
         ) : (
           <Button 
             onClick={handleConnect} 
-            disabled={isConnecting || isLoading}
+            disabled={isConnecting || isLoading || !localStorage.getItem('google_client_id')}
           >
             <Calendar className="mr-2 h-4 w-4" />
             {isConnecting ? "Connecting..." : "Connect Google Calendar"}

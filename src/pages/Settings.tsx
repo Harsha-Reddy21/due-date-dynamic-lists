@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,12 +10,21 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
+import { Input } from '@/components/ui/input';
 import '@/types/google-api.d.ts';
 
 const Settings: React.FC = () => {
   const { user } = useAuth();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
+  const [googleClientId, setGoogleClientId] = useState<string>(localStorage.getItem('google_client_id') || '');
+  const [googleClientSecret, setGoogleClientSecret] = useState<string>(localStorage.getItem('google_client_secret') || '');
+
+  const saveGoogleCredentials = () => {
+    localStorage.setItem('google_client_id', googleClientId);
+    localStorage.setItem('google_client_secret', googleClientSecret);
+    toast.success('Google credentials saved successfully');
+  };
 
   return (
     <Layout>
@@ -57,6 +66,46 @@ const Settings: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="integrations" className="space-y-6">
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Google OAuth Credentials</CardTitle>
+                <CardDescription>
+                  Enter your Google OAuth credentials to enable calendar integration
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="google-client-id">Client ID</Label>
+                  <Input 
+                    id="google-client-id" 
+                    value={googleClientId}
+                    onChange={(e) => setGoogleClientId(e.target.value)}
+                    placeholder="Enter your Google Client ID"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Get this from the Google Cloud Console
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="google-client-secret">Client Secret</Label>
+                  <Input 
+                    id="google-client-secret" 
+                    type="password"
+                    value={googleClientSecret}
+                    onChange={(e) => setGoogleClientSecret(e.target.value)}
+                    placeholder="Enter your Google Client Secret"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This is kept securely in your browser's local storage
+                  </p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button onClick={saveGoogleCredentials}>
+                  Save Credentials
+                </Button>
+              </CardFooter>
+            </Card>
             <GoogleCalendarIntegration />
           </TabsContent>
           
