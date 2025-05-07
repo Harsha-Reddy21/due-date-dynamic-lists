@@ -465,7 +465,9 @@ const GoogleCalendarIntegration = () => {
                 try {
                   await supabase
                     .from('tasks')
-                    .update({ calendar_event_id: calendarEventId })
+                    .update({ 
+                      calendar_event_id: calendarEventId // This is what causes the TS error
+                    })
                     .eq('id', task.id);
                   
                   console.log(`Updated task ${task.id} with calendar event ID ${calendarEventId}`);
