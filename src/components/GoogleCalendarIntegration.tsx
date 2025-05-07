@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -10,6 +9,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Progress } from './ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import '@/types/google-api';
+
+// Add this comment to make TypeScript aware of the Window interface extension
+declare global {
+  interface Window {
+    gapi: any;
+    google: any;
+  }
+}
 
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -25,9 +32,10 @@ const GoogleCalendarIntegration = () => {
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
+  // Use the current URL for redirect
   const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
-  const REDIRECT_URI = window.location.origin;
+  const REDIRECT_URI = window.location.origin + '/settings';
 
   // Check if we're in the OAuth callback
   useEffect(() => {
@@ -204,8 +212,16 @@ const GoogleCalendarIntegration = () => {
     }
 
     try {
-      // Initiate OAuth flow - using direct OAuth URL with the hardcoded client ID
+      // Update the OAuth flow with the corrected redirect URI
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
+      
+      toast.info("Redirecting to Google for authorization", {
+        description: "You'll be asked to grant permission to access your calendar"
+      });
+      
+      // Log the redirect URI for debugging
+      console.log("Redirecting to Google with redirect URI:", REDIRECT_URI);
+      
       window.location.href = authUrl;
     } catch (error) {
       console.error("Error initiating Google sign-in:", error);

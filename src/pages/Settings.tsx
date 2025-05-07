@@ -29,6 +29,14 @@ import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 // Import Google API types - this will ensure TypeScript knows about window.gapi and window.google
 import '@/types/google-api';
 
+// Add this comment to make TypeScript aware of the Window interface extension
+declare global {
+  interface Window {
+    gapi: any;
+    google: any;
+  }
+}
+
 const integrationFormSchema = z.object({
   clientId: z.string().min(1, "Client ID is required"),
   apiKey: z.string().min(1, "API Key is required"),
@@ -58,6 +66,9 @@ const Settings: React.FC = () => {
       apiKey: "", // You would need to add a valid API key here
     },
   });
+  
+  // Use the current URL for redirect
+  const REDIRECT_URI = window.location.origin + '/settings';
   
   // Load user settings from Supabase
   useEffect(() => {
@@ -101,7 +112,7 @@ const Settings: React.FC = () => {
     fetchUserSettings();
   }, [user, form]);
   
-  // Load Google API scripts
+  // Load Google API scripts with improved error handling
   const loadGoogleScripts = () => {
     // Check if scripts are already loaded
     if (window.gapi || document.querySelector('script[src="https://apis.google.com/js/api.js"]')) {
@@ -288,15 +299,19 @@ const Settings: React.FC = () => {
     }
   };
   
-  // Connect to Google Calendar
+  // Connect to Google Calendar with explicit redirect URI
   const handleGoogleConnect = () => {
     // Direct OAuth approach with hardcoded client ID
     const clientId = "661623544891-hjof33mf018260ld9gs9r3e2jfesq6ee.apps.googleusercontent.com";
-    const redirectUri = window.location.origin;
+    const redirectUri = REDIRECT_URI;
     const scope = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events';
+    
+    // Log the redirect URI for debugging
+    console.log("Connecting to Google with redirect URI:", redirectUri);
     
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
     
+    toast.info("Redirecting to Google for authorization");
     window.location.href = authUrl;
   };
   
