@@ -11,13 +11,10 @@ import { Progress } from './ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import '@/types/google-api.d.ts';
 
-// Add this comment to make TypeScript aware of the Window interface extension
-declare global {
-  interface Window {
-    gapi: any;
-    google: any;
-  }
-}
+// Define the serverUrl for our Edge Function
+const EDGE_FUNCTION_URL = import.meta.env.VITE_SUPABASE_URL 
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-calendar`
+  : 'http://localhost:54321/functions/v1/google-calendar';
 
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -26,19 +23,11 @@ const GoogleCalendarIntegration = () => {
   const [syncProgress, setSyncProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
-  // Using hardcoded credentials for testing
-  const [clientId] = useState<string>("661623544891-hjof33mf018260ld9gs9r3e2jfesq6ee.apps.googleusercontent.com");
-  const [apiKey] = useState<string>(""); // You would need to add a valid API key here
   const [isLoading, setIsLoading] = useState(false);
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
-  // Use the current URL for redirect
-  const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
-  const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
-  const REDIRECT_URI = window.location.origin + '/settings';
-
-  // Check if we're in the OAuth callback
+  // Check for OAuth code in URL on component mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -57,133 +46,74 @@ const GoogleCalendarIntegration = () => {
       // Remove the code from the URL to prevent reprocessing on refresh
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
-
-  // Load Google API client library if needed
-  useEffect(() => {
-    // Skip if already connected, connecting, or missing credentials
-    if (isConnected || isConnecting || !clientId) return;
-
-    let scriptLoaded = false;
-    const checkGoogleAPI = () => {
-      if (window.gapi && !scriptLoaded) {
-        scriptLoaded = true;
-        initializeGoogleAPI();
-      }
-    };
-
-    // Check if script is already loaded
-    if (document.querySelector('script[src="https://apis.google.com/js/api.js"]')) {
-      checkGoogleAPI();
-    } else {
-      // Load Google API client library script
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        scriptLoaded = true;
-        initializeGoogleAPI();
-      };
-      script.onerror = () => {
-        setError('Failed to load Google API client library');
-      };
-      document.body.appendChild(script);
-    }
-
-    // Poll for Google API to be loaded
-    const interval = setInterval(checkGoogleAPI, 100);
-    return () => clearInterval(interval);
-  }, [isConnected, isConnecting, clientId]);
-
-  const initializeGoogleAPI = () => {
-    if (!window.gapi) return;
     
-    try {
-      window.gapi.load('client:auth2', initClient);
-    } catch (error) {
-      console.error('Error loading Google API client', error);
-      setError('Failed to initialize Google API client');
+    // Check connection status
+    if (user) {
+      checkConnectionStatus();
     }
-  };
-
-  const initClient = () => {
-    if (!window.gapi || !clientId) return;
-    
-    try {
-      window.gapi.client.init({
-        apiKey: apiKey,
-        clientId: clientId,
-        discoveryDocs: DISCOVERY_DOCS,
-        scope: SCOPES
-      }).then(() => {
-        // Check if user is already signed in
-        if (window.gapi.auth2 && window.gapi.auth2.getAuthInstance().isSignedIn.get()) {
-          updateSigninStatus(true);
-        }
-
-        // Listen for sign-in state changes
-        if (window.gapi.auth2) {
-          window.gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
-        }
-      }).catch((error: any) => {
-        console.error('Error initializing Google API client:', error);
-        setError('Failed to initialize Google API client. Please check your credentials.');
-      });
-    } catch (error) {
-      console.error('Error in initClient', error);
-      setError('Failed to initialize Google API client');
-    }
-  };
-
-  const updateSigninStatus = async (isSignedIn: boolean) => {
-    setIsConnected(isSignedIn);
-    
+  }, [user]);
+  
+  const checkConnectionStatus = async () => {
     if (!user) return;
     
-    // Update connection status in Supabase
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('user_settings')
-        .update({
-          is_google_connected: isSignedIn,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
+        .select('is_google_connected, google_last_sync')
+        .eq('user_id', user.id)
+        .single();
         
-      if (isSignedIn) {
-        toast.success("Google Calendar connected successfully!", {
-          description: "You can now sync your tasks with your Google Calendar"
-        });
+      if (error) {
+        console.error("Error fetching connection status:", error);
+        return;
       }
+      
+      setIsConnected(data?.is_google_connected || false);
+      setLastSynced(data?.google_last_sync || null);
     } catch (error) {
-      console.error("Error updating Google connection status:", error);
+      console.error("Error checking connection status:", error);
     }
   };
 
   const handleOAuthCallback = async (code: string) => {
-    if (!user) return;
+    if (!user) {
+      toast.error("You must be logged in to connect Google Calendar");
+      return;
+    }
     
     setIsConnecting(true);
     setError(null);
     
     try {
-      // In a real app, you'd exchange the code for a token using a backend service
-      // For demo purposes, we'll simulate success after a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Exchange authorization code for tokens using our Edge Function
+      const response = await fetch(`${EDGE_FUNCTION_URL}/auth/callback?code=${code}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
+        }
+      });
       
-      // Simulate successful connection
-      setIsConnected(true);
+      if (!response.ok) {
+        throw new Error(`Failed to exchange code for tokens: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
       
       // Update connection status in Supabase
-      await supabase
+      const { error: updateError } = await supabase
         .from('user_settings')
         .update({
           is_google_connected: true,
+          google_last_sync: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
       
+      if (updateError) {
+        throw updateError;
+      }
+      
+      setIsConnected(true);
       toast.success("Google Calendar connected successfully!", {
         description: "You can now sync your tasks with your Google Calendar"
       });
@@ -196,7 +126,7 @@ const GoogleCalendarIntegration = () => {
     }
   };
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!user) {
       toast.error("You must be logged in to connect Google Calendar");
       return;
@@ -204,24 +134,24 @@ const GoogleCalendarIntegration = () => {
     
     setError(null);
     
-    if (!clientId) {
-      toast.error("Google Calendar integration is not properly configured", {
-        description: "Please configure your Google API credentials in the application settings."
-      });
-      setError("Google Calendar integration is not configured. Missing client ID.");
-      return;
-    }
-
     try {
-      // Update the OAuth flow with the corrected redirect URI
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
+      // Redirect to login endpoint on our Edge Function
+      const response = await fetch(`${EDGE_FUNCTION_URL}/login`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to initiate OAuth flow: ${response.statusText}`);
+      }
+      
+      const { authUrl } = await response.json();
       
       toast.info("Redirecting to Google for authorization", {
         description: "You'll be asked to grant permission to access your calendar"
       });
-      
-      // Log the redirect URI for debugging
-      console.log("Redirecting to Google with redirect URI:", REDIRECT_URI);
       
       window.location.href = authUrl;
     } catch (error) {
@@ -241,12 +171,17 @@ const GoogleCalendarIntegration = () => {
     try {
       setIsLoading(true);
       
-      // Sign out of Google
-      if (window.gapi && window.gapi.auth2) {
-        const authInstance = window.gapi.auth2.getAuthInstance();
-        if (authInstance) {
-          await authInstance.signOut();
+      // Call our Edge Function to revoke the tokens
+      const response = await fetch(`${EDGE_FUNCTION_URL}/revoke`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
+          'Content-Type': 'application/json'
         }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to revoke tokens: ${response.statusText}`);
       }
       
       // Update connection status in Supabase
@@ -284,41 +219,56 @@ const GoogleCalendarIntegration = () => {
     setIsSyncing(true);
     setSyncProgress(0);
     
-    // Get tasks that are due today or in the future
-    const tasksToSync = tasks.filter(task => {
-      if (!task.dueDate) return false;
-      const dueDate = new Date(task.dueDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return dueDate >= today;
-    });
-    
     try {
-      // Simulate progress updates
-      const totalTasks = tasksToSync.length || 1;
-      const stepSize = 100 / totalTasks;
+      // Get tasks that are due today or in the future
+      const tasksToSync = tasks.filter(task => {
+        if (!task.dueDate) return false;
+        const dueDate = new Date(task.dueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return dueDate >= today;
+      });
       
-      // Process each task
+      const totalTasks = tasksToSync.length;
+      const stepSize = totalTasks > 0 ? 100 / totalTasks : 100;
+      
+      // Process tasks in batches to avoid overwhelming the API
       for (let i = 0; i < tasksToSync.length; i++) {
         const task = tasksToSync[i];
-        
-        // In a real app, this would create calendar events with the Google Calendar API
-        if (window.gapi && window.gapi.client) {
-          try {
-            // Create calendar event
-            console.log(`Creating calendar event for task: ${task.title}`);
-            
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Calculate progress
-            const progress = Math.min(stepSize * (i + 1), 100);
-            setSyncProgress(progress);
-            
-          } catch (error) {
-            console.error(`Error creating calendar event for task ${task.title}:`, error);
+        try {
+          // Convert task to calendar event
+          const startTime = task.dueDate ? new Date(task.dueDate) : new Date();
+          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour duration
+          
+          // Format ISO strings for the API
+          const startIso = startTime.toISOString();
+          const endIso = endTime.toISOString();
+          
+          // Call our Edge Function to add the event
+          const response = await fetch(`${EDGE_FUNCTION_URL}/add_task`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              title: task.title,
+              description: task.description || '',
+              start_time: startIso,
+              end_time: endIso
+            })
+          });
+          
+          if (!response.ok) {
+            console.error(`Failed to add task ${task.title} to calendar`);
           }
+        } catch (err) {
+          console.error(`Error adding task ${task.title} to calendar:`, err);
         }
+        
+        // Update progress
+        const progress = Math.min(stepSize * (i + 1), 100);
+        setSyncProgress(progress);
       }
       
       // Final progress update
@@ -370,8 +320,21 @@ const GoogleCalendarIntegration = () => {
     
     toast.info("Refreshing calendar data...");
     
-    // Simulate fetching calendar events
-    setTimeout(async () => {
+    try {
+      const response = await fetch(`${EDGE_FUNCTION_URL}/list_events`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(res => res.data.session?.access_token)}`,
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to list events: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      const eventsCount = result.items?.length || 0;
+      
       // Update last synced time in Supabase
       const now = new Date().toISOString();
       setLastSynced(now);
@@ -384,10 +347,11 @@ const GoogleCalendarIntegration = () => {
         })
         .eq('user_id', user.id);
       
-      toast.success("Calendar refreshed successfully", {
-        description: "Your calendar is now up to date"
-      });
-    }, 1500);
+      toast.success(`Calendar refreshed: ${eventsCount} upcoming events found`);
+    } catch (error) {
+      console.error("Error refreshing calendar:", error);
+      toast.error("Failed to refresh calendar");
+    }
   };
 
   return (
@@ -402,17 +366,7 @@ const GoogleCalendarIntegration = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!clientId && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Missing Credentials</AlertTitle>
-            <AlertDescription>
-              Using hardcoded Google Calendar credentials for testing purposes.
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {error && clientId && (
+        {error && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -462,17 +416,17 @@ const GoogleCalendarIntegration = () => {
         {isConnected ? (
           <>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleDisconnect}>
+              <Button variant="outline" onClick={handleDisconnect} disabled={isLoading}>
                 Disconnect
               </Button>
-              <Button variant="outline" onClick={handleRefreshCalendar}>
+              <Button variant="outline" onClick={handleRefreshCalendar} disabled={isLoading}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
             </div>
             <Button 
               onClick={handleSyncTasks} 
-              disabled={isSyncing}
+              disabled={isSyncing || isLoading}
             >
               <Calendar className="mr-2 h-4 w-4" />
               {isSyncing ? `Syncing (${Math.round(syncProgress)}%)` : "Sync Tasks"}
@@ -481,7 +435,7 @@ const GoogleCalendarIntegration = () => {
         ) : (
           <Button 
             onClick={handleConnect} 
-            disabled={isConnecting}
+            disabled={isConnecting || isLoading}
           >
             <Calendar className="mr-2 h-4 w-4" />
             {isConnecting ? "Connecting..." : "Connect Google Calendar"}

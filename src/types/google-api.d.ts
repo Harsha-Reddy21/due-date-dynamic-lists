@@ -1,4 +1,5 @@
 
+// Type definitions for Google API client
 interface Window {
   gapi: {
     load: (api: string, callback: () => void) => void;
