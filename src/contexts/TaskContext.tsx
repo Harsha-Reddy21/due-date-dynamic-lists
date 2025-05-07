@@ -90,7 +90,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
-          completed: task.completed === true, // Here's the fix - use a boolean expression to handle when completed is undefined
+          completed: !!task.completed, // Fix: Use double negation to ensure boolean type, handling undefined
         }));
         
         setFlatTasks(formattedTasks);
