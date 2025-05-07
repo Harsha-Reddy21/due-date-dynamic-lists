@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,15 +61,16 @@ const Settings: React.FC = () => {
         script.src = "https://apis.google.com/js/api.js";
         document.body.appendChild(script);
         
-        await new Promise((resolve) => {
-          script.onload = resolve;
+        await new Promise<void>((resolve) => {
+          script.onload = () => resolve();
         });
       }
       
-      await new Promise((resolve) => {
-        window.gapi.load('client:auth2', resolve);
+      await new Promise<void>((resolve) => {
+        window.gapi.load('client:auth2', () => resolve());
       });
       
+      // Initialize and authenticate with Google
       await window.gapi.client.init({
         apiKey: values.apiKey,
         clientId: values.clientId,

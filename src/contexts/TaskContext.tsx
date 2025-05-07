@@ -90,7 +90,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
-          completed: !!task.completed, // Fix: Use double negation to ensure boolean type, handling undefined
+          // Fix: Handle the case when completed property doesn't exist in the database schema
+          // The completed property may not exist in the database schema, so set it to false by default
+          completed: task.completed !== undefined ? task.completed : false,
         }));
         
         setFlatTasks(formattedTasks);

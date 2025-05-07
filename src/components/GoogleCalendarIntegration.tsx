@@ -18,13 +18,33 @@ const GoogleCalendarIntegration = () => {
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
-  // Google OAuth2 configuration
-  // Replace these with your actual Google Cloud Console credentials
-  const CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_CLIENT_ID';
-  const API_KEY = process.env.VITE_GOOGLE_API_KEY || 'YOUR_API_KEY';
+  // Get credentials from localStorage (set in Settings page)
+  const CLIENT_ID = localStorage.getItem('GOOGLE_CLIENT_ID') || '';
+  const API_KEY = localStorage.getItem('GOOGLE_API_KEY') || '';
   const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
   const REDIRECT_URI = window.location.origin;
+
+  // Check credentials on component mount
+  useEffect(() => {
+    // Verify saved connection status
+    const isGoogleConnected = localStorage.getItem('google_calendar_connected');
+    const lastSyncTime = localStorage.getItem('google_calendar_last_sync');
+    
+    if (isGoogleConnected === 'true') {
+      setIsConnected(true);
+      if (lastSyncTime) {
+        setLastSynced(lastSyncTime);
+      }
+    }
+    
+    // Check if credentials exist
+    if (!CLIENT_ID || !API_KEY) {
+      setError("Google Calendar credentials not found. Please add your credentials in Settings.");
+    } else {
+      setError(null);
+    }
+  }, [CLIENT_ID, API_KEY]);
 
   // Check if we're in the OAuth callback
   useEffect(() => {
@@ -338,7 +358,17 @@ const GoogleCalendarIntegration = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {error && (
+        {(!CLIENT_ID || !API_KEY) && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Missing Credentials</AlertTitle>
+            <AlertDescription>
+              Google Calendar credentials not found. Please add your Client ID and API Key in the Settings page.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {error && CLIENT_ID && API_KEY && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -396,13 +426,19 @@ const GoogleCalendarIntegration = () => {
                 Refresh
               </Button>
             </div>
-            <Button onClick={handleSyncTasks} disabled={isSyncing}>
+            <Button 
+              onClick={handleSyncTasks} 
+              disabled={isSyncing || !CLIENT_ID || !API_KEY}
+            >
               <Calendar className="mr-2 h-4 w-4" />
               {isSyncing ? `Syncing (${Math.round(syncProgress)}%)` : "Sync Tasks"}
             </Button>
           </>
         ) : (
-          <Button onClick={handleConnect} disabled={isConnecting}>
+          <Button 
+            onClick={handleConnect} 
+            disabled={isConnecting || !CLIENT_ID || !API_KEY}
+          >
             <Calendar className="mr-2 h-4 w-4" />
             {isConnecting ? "Connecting..." : "Connect Google Calendar"}
           </Button>
