@@ -1,33 +1,24 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { BellRing, HelpCircle, Menu } from "lucide-react";
+import { BellRing, HelpCircle } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { Badge } from "./ui/badge";
 import UserMenu from "./UserMenu";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { toast } from "./ui/sonner";
-import { useTaskContext } from "@/contexts/TaskContext";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { toast } from "./ui/sonner";
+import { useTaskContext } from "@/contexts/TaskContext";
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { tasks, markNotificationsAsSeen, hasUnseenNotifications } = useTaskContext();
   const location = useLocation();
   const navigate = useNavigate();
@@ -115,7 +106,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   const handleNavigation = (path: string) => {
     navigate(path);
-    setIsMobileMenuOpen(false);
   };
   
   return (
@@ -124,71 +114,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <header className="bg-white border-b py-4 sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button className="p-2 rounded-full hover:bg-gray-100 lg:hidden" variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left">
-                <SheetHeader>
-                  <SheetTitle>TaskPal Menu</SheetTitle>
-                  <SheetDescription>
-                    Quick access to your task management tools
-                  </SheetDescription>
-                </SheetHeader>
-                <div className="flex flex-col gap-4 mt-6">
-                  <Button 
-                    variant={location.pathname === "/" ? "default" : "ghost"} 
-                    className="justify-start" 
-                    onClick={() => handleNavigation("/")}
-                  >
-                    Dashboard
-                  </Button>
-                  <Button 
-                    variant={location.pathname === "/profile" ? "default" : "ghost"} 
-                    className="justify-start" 
-                    onClick={() => handleNavigation("/profile")}
-                  >
-                    Profile
-                  </Button>
-                  <Button 
-                    variant={location.pathname === "/settings" ? "default" : "ghost"} 
-                    className="justify-start" 
-                    onClick={() => handleNavigation("/settings")}
-                  >
-                    Settings
-                  </Button>
-                  <Button 
-                    variant={location.pathname === "/auth" ? "default" : "ghost"} 
-                    className="justify-start" 
-                    onClick={() => handleNavigation("/auth")}
-                  >
-                    Authentication
-                  </Button>
-                  <Button variant="ghost" className="justify-start" onClick={handleNotificationClick}>
-                    <BellRing className="h-4 w-4 mr-2" />
-                    Notifications
-                    {notificationCount > 0 && (
-                      <Badge className="ml-2 bg-red-500 text-white">{notificationCount}</Badge>
-                    )}
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="justify-start gap-2" 
-                    onClick={() => {
-                      toast("Help & Support", {
-                        description: "Our support team will be available shortly.",
-                      });
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    <HelpCircle className="h-4 w-4" />
-                    Help
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
             <Link to="/">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
                 TaskPal
