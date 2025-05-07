@@ -458,7 +458,7 @@ const Settings: React.FC = () => {
                 {!isGoogleConnected && (
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleGoogleInit)} className="space-y-4">
-                      <Alert variant="warning" className="mb-4 bg-amber-50 border-amber-200">
+                      <Alert className="mb-4 bg-amber-50 border-amber-200">
                         <Info className="h-4 w-4" />
                         <AlertTitle>Google Cloud API Credentials Required</AlertTitle>
                         <AlertDescription>
