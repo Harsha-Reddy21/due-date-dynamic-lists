@@ -49,12 +49,12 @@ const Settings: React.FC = () => {
     gis: false
   });
   
-  // Form for Google Calendar credentials
+  // Form for Google Calendar credentials with hardcoded values
   const form = useForm<IntegrationFormValues>({
     resolver: zodResolver(integrationFormSchema),
     defaultValues: {
-      clientId: "",
-      apiKey: "",
+      clientId: "661623544891-hjof33mf018260ld9gs9r3e2jfesq6ee.apps.googleusercontent.com",
+      apiKey: "", // You would need to add a valid API key here
     },
   });
   
@@ -289,22 +289,14 @@ const Settings: React.FC = () => {
   
   // Connect to Google Calendar
   const handleGoogleConnect = () => {
-    if (!tokenClient) {
-      toast.error("Google API not initialized", {
-        description: "Please save your API credentials first"
-      });
-      return;
-    }
+    // Direct OAuth approach with hardcoded client ID
+    const clientId = "661623544891-hjof33mf018260ld9gs9r3e2jfesq6ee.apps.googleusercontent.com";
+    const redirectUri = window.location.origin;
+    const scope = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events';
     
-    setIsLoading(true);
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
     
-    if (window.gapi?.client?.getToken() === null) {
-      // Prompt the user to select a Google Account and ask for consent to share their data
-      tokenClient.requestAccessToken({prompt: 'consent'});
-    } else {
-      // Skip display of account chooser and consent dialog for an existing session
-      tokenClient.requestAccessToken({prompt: ''});
-    }
+    window.location.href = authUrl;
   };
   
   // Disconnect from Google Calendar
@@ -458,88 +450,33 @@ const Settings: React.FC = () => {
                 )}
                 
                 {!isGoogleConnected && (
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleGoogleInit)} className="space-y-4">
-                      <Alert className="mb-4 bg-amber-50 border-amber-200">
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>Google Cloud API Credentials Required</AlertTitle>
-                        <AlertDescription>
-                          You need to create a project in the Google Cloud Console and generate credentials. 
-                          <a 
-                            href="https://developers.google.com/calendar/api/quickstart/js" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline ml-1"
-                          >
-                            Learn how to get credentials
-                          </a>
-                        </AlertDescription>
-                      </Alert>
-                      
-                      <FormField
-                        control={form.control}
-                        name="clientId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Google Client ID</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Your Google OAuth Client ID" {...field} />
-                            </FormControl>
-                            <FormDescription>
-                              Client ID from your Google Cloud Console
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="apiKey"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Google API Key</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Your Google API Key" {...field} />
-                            </FormControl>
-                            <FormDescription>
-                              API Key from your Google Cloud Console
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <div className="flex flex-col gap-4">
-                        <Button 
-                          type="submit"
-                          disabled={isLoading}
-                        >
-                          {isLoading ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              Saving...
-                            </>
-                          ) : "Save Credentials"}
-                        </Button>
-                        
-                        {gapiInited && gisInited && (
-                          <Button 
-                            type="button"
-                            onClick={handleGoogleConnect}
-                            disabled={isLoading}
-                          >
-                            {isLoading ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                Connecting...
-                              </>
-                            ) : "Connect Google Calendar"}
-                          </Button>
-                        )}
-                      </div>
-                    </form>
-                  </Form>
+                  <div>
+                    <Alert className="mb-4 bg-amber-50 border-amber-200">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Using Test Credentials</AlertTitle>
+                      <AlertDescription>
+                        Using hardcoded client ID for testing purposes:
+                        <code className="block mt-2 p-2 bg-amber-100 rounded text-xs">
+                          661623544891-hjof33mf018260ld9gs9r3e2jfesq6ee.apps.googleusercontent.com
+                        </code>
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div className="flex flex-col gap-4 mt-4">                        
+                      <Button 
+                        type="button"
+                        onClick={handleGoogleConnect}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Connecting...
+                          </>
+                        ) : "Connect Google Calendar (Test)"}
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -17,58 +16,16 @@ const GoogleCalendarIntegration = () => {
   const [syncProgress, setSyncProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
-  const [clientId, setClientId] = useState<string>("");
-  const [apiKey, setApiKey] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false); // Added missing isLoading state
+  // Using hardcoded credentials for testing
+  const [clientId] = useState<string>("661623544891-hjof33mf018260ld9gs9r3e2jfesq6ee.apps.googleusercontent.com");
+  const [apiKey] = useState<string>(""); // You would need to add a valid API key here
+  const [isLoading, setIsLoading] = useState(false);
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
   const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'];
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events';
   const REDIRECT_URI = window.location.origin;
-
-  // Fetch user settings from Supabase
-  useEffect(() => {
-    if (!user) return;
-    
-    const fetchUserSettings = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_settings')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-          
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // No settings found
-            setError("Google Calendar credentials not found. Please add your credentials in Settings.");
-            return;
-          }
-          throw error;
-        }
-        
-        // Set credentials from Supabase
-        if (data) {
-          setClientId(data.google_client_id || "");
-          setApiKey(data.google_api_key || "");
-          setIsConnected(data.is_google_connected || false);
-          setLastSynced(data.google_last_sync || null);
-          
-          if (!data.google_client_id || !data.google_api_key) {
-            setError("Google Calendar credentials not found. Please add your credentials in Settings.");
-          } else {
-            setError(null);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching user settings:", err);
-        setError("Failed to load Google Calendar settings");
-      }
-    };
-    
-    fetchUserSettings();
-  }, [user]);
 
   // Check if we're in the OAuth callback
   useEffect(() => {
@@ -94,7 +51,7 @@ const GoogleCalendarIntegration = () => {
   // Load Google API client library if needed
   useEffect(() => {
     // Skip if already connected, connecting, or missing credentials
-    if (isConnected || isConnecting || !clientId || !apiKey) return;
+    if (isConnected || isConnecting || !clientId) return;
 
     let scriptLoaded = false;
     const checkGoogleAPI = () => {
@@ -126,7 +83,7 @@ const GoogleCalendarIntegration = () => {
     // Poll for Google API to be loaded
     const interval = setInterval(checkGoogleAPI, 100);
     return () => clearInterval(interval);
-  }, [isConnected, isConnecting, clientId, apiKey]);
+  }, [isConnected, isConnecting, clientId]);
 
   const initializeGoogleAPI = () => {
     if (!window.gapi) return;
@@ -140,7 +97,7 @@ const GoogleCalendarIntegration = () => {
   };
 
   const initClient = () => {
-    if (!window.gapi || !clientId || !apiKey) return;
+    if (!window.gapi || !clientId) return;
     
     try {
       window.gapi.client.init({
@@ -236,7 +193,7 @@ const GoogleCalendarIntegration = () => {
     
     setError(null);
     
-    if (!clientId || clientId === 'YOUR_CLIENT_ID') {
+    if (!clientId) {
       toast.error("Google Calendar integration is not properly configured", {
         description: "Please configure your Google API credentials in the application settings."
       });
@@ -245,24 +202,9 @@ const GoogleCalendarIntegration = () => {
     }
 
     try {
-      // Initiate OAuth flow
-      if (window.gapi && window.gapi.auth2) {
-        setIsConnecting(true);
-        window.gapi.auth2.getAuthInstance().signIn()
-          .then(() => {
-            setIsConnecting(false);
-          })
-          .catch((error: any) => {
-            console.error("Error during Google sign-in:", error);
-            setError("Failed to connect to Google Calendar. Please try again.");
-            toast.error("Failed to connect to Google Calendar");
-            setIsConnecting(false);
-          });
-      } else {
-        // Fallback to manual OAuth if Google API isn't loaded
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
-        window.location.href = authUrl;
-      }
+      // Initiate OAuth flow - using direct OAuth URL with the hardcoded client ID
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPES)}&access_type=offline&prompt=consent`;
+      window.location.href = authUrl;
     } catch (error) {
       console.error("Error initiating Google sign-in:", error);
       setError("Failed to connect to Google Calendar. Please try again.");
@@ -441,17 +383,17 @@ const GoogleCalendarIntegration = () => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {(!clientId || !apiKey) && (
+        {!clientId && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Missing Credentials</AlertTitle>
             <AlertDescription>
-              Google Calendar credentials not found. Please add your Client ID and API Key in the Settings page.
+              Using hardcoded Google Calendar credentials for testing purposes.
             </AlertDescription>
           </Alert>
         )}
         
-        {error && clientId && apiKey && (
+        {error && clientId && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
@@ -511,7 +453,7 @@ const GoogleCalendarIntegration = () => {
             </div>
             <Button 
               onClick={handleSyncTasks} 
-              disabled={isSyncing || !clientId || !apiKey}
+              disabled={isSyncing}
             >
               <Calendar className="mr-2 h-4 w-4" />
               {isSyncing ? `Syncing (${Math.round(syncProgress)}%)` : "Sync Tasks"}
@@ -520,7 +462,7 @@ const GoogleCalendarIntegration = () => {
         ) : (
           <Button 
             onClick={handleConnect} 
-            disabled={isConnecting || !clientId || !apiKey}
+            disabled={isConnecting}
           >
             <Calendar className="mr-2 h-4 w-4" />
             {isConnecting ? "Connecting..." : "Connect Google Calendar"}
