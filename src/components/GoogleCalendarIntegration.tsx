@@ -23,7 +23,7 @@ const GoogleCalendarIntegration = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [events, setEvents] = useState<any[]>([]);
   const [credentialsEntered, setCredentialsEntered] = useState(false);
-  const { tasks } = useTaskContext();
+  const { tasks, refreshTasks } = useTaskContext();
   
   // These are set up as variables to be used throughout the component
   const [gapiInstance, setGapiInstance] = useState<typeof window.gapi | null>(null);
@@ -463,8 +463,7 @@ const GoogleCalendarIntegration = () => {
               // Update the task with the calendar event ID
               if (calendarEventId) {
                 try {
-                  // Note: We're using camelCase for the task fields in our code,
-                  // but the database uses snake_case
+                  // Update the task with the calendar event ID using proper snake_case for DB
                   await supabase
                     .from('tasks')
                     .update({
@@ -473,12 +472,11 @@ const GoogleCalendarIntegration = () => {
                     .eq('id', task.id);
                   
                   console.log(`Updated task ${task.id} with calendar event ID ${calendarEventId}`);
+                  successCount++;
                 } catch (updateErr) {
                   console.error(`Error updating task with calendar event ID: ${updateErr}`);
                 }
               }
-              
-              successCount++;
             }
           }
         } catch (err) {
@@ -494,6 +492,9 @@ const GoogleCalendarIntegration = () => {
       const now = new Date().toISOString();
       localStorage.setItem('google_last_sync', now);
       setLastSynced(now);
+      
+      // Refresh tasks to get the updated calendarEventId values
+      await refreshTasks();
       
       setTimeout(() => {
         setIsSyncing(false);
@@ -519,6 +520,7 @@ const GoogleCalendarIntegration = () => {
   const handleRefreshCalendar = () => {
     toast.info("Refreshing calendar data...");
     fetchEvents();
+    refreshTasks(); // Also refresh task list
     
     const now = new Date().toISOString();
     localStorage.setItem('google_last_sync', now);

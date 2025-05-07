@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import { TaskWithPriority } from "@/types/task";
-import { Loader2, Plus, SortAsc, SortDesc } from "lucide-react";
+import { Loader2, Plus, SortAsc, SortDesc, RefreshCw } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { SortableTaskItem } from "./SortableTaskItem";
@@ -25,9 +25,10 @@ const TaskList: React.FC<TaskListProps> = ({
   nestingLevel = 0,
   parentId = null
 }) => {
-  const { tasks: allTasks, isLoading, updateTaskOrder } = useTaskContext();
+  const { tasks: allTasks, isLoading, updateTaskOrder, refreshTasks } = useTaskContext();
   const [isAddSubtaskDialogOpen, setIsAddSubtaskDialogOpen] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -74,6 +75,13 @@ const TaskList: React.FC<TaskListProps> = ({
   const toggleSortDirection = () => {
     setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
   };
+
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshTasks();
+    setTimeout(() => setIsRefreshing(false), 500); // Add a small delay for better UX
+  };
   
   if (isLoading) {
     return (
@@ -112,7 +120,26 @@ const TaskList: React.FC<TaskListProps> = ({
     >
       <div className="space-y-2 mb-4">
         {shouldShowSortButton && (
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              className="flex items-center gap-1 text-xs"
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Refresh
+                </>
+              )}
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 

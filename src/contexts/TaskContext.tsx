@@ -19,6 +19,7 @@ interface TaskContextProps {
   updateTaskOrder: (newOrder: TaskWithPriority[], parentId: string | null) => void;
   markNotificationsAsSeen: () => void;
   hasUnseenNotifications: boolean;
+  refreshTasks: () => Promise<void>; // Added refreshTasks method
 }
 
 const TaskContext = createContext<TaskContextProps | undefined>(undefined);
@@ -96,6 +97,52 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
   
+  // Function to fetch tasks that can be called from outside
+  const fetchTasks = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id) // Only fetch tasks for this user
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Convert the database format to our app's Task format
+      const formattedTasks: Task[] = data.map((task: any) => ({
+        id: task.id,
+        userId: task.user_id,
+        parentId: task.parent_id,
+        title: task.title,
+        description: task.description || "",
+        dueDate: task.due_date,
+        weight: task.weight as Weight,
+        createdAt: task.created_at,
+        updatedAt: task.updated_at,
+        completed: Boolean(task.completed),
+        calendarEventId: task.calendar_event_id || undefined,
+      }));
+      
+      setFlatTasks(formattedTasks);
+      console.log("Tasks fetched successfully:", formattedTasks.length);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      toast.error("Failed to load tasks");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Public method to refresh tasks
+  const refreshTasks = async () => {
+    await fetchTasks();
+  };
+  
   // Fetch tasks from Supabase when user changes
   useEffect(() => {
     if (!user) {
@@ -107,57 +154,44 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    const fetchTasks = async () => {
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('user_id', user.id) // Only fetch tasks for this user
-          .order('created_at', { ascending: false });
-          
-        if (error) {
-          throw error;
-        }
-        
-        // Convert the database format to our app's Task format
-        const formattedTasks: Task[] = data.map((task: any) => ({
-          id: task.id,
-          userId: task.user_id,
-          parentId: task.parent_id,
-          title: task.title,
-          description: task.description || "",
-          dueDate: task.due_date,
-          weight: task.weight as Weight,
-          createdAt: task.created_at,
-          updatedAt: task.updated_at,
-          completed: Boolean(task.completed),
-          calendarEventId: task.calendar_event_id || undefined,
-        }));
-        
-        setFlatTasks(formattedTasks);
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
-        toast.error("Failed to load tasks");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     fetchTasks();
     
-    // Subscribe to changes
+    // Subscribe to changes - improve the subscription to handle all types of changes
     const tasksSubscription = supabase
       .channel('public:tasks')
       .on('postgres_changes', { 
-        event: '*', 
+        event: 'INSERT', 
         schema: 'public',
         table: 'tasks',
         filter: `user_id=eq.${user.id}` // Only listen for this user's tasks
-      }, fetchTasks)
-      .subscribe();
+      }, () => {
+        console.log("Task inserted, refreshing tasks");
+        fetchTasks();
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public',
+        table: 'tasks',
+        filter: `user_id=eq.${user.id}` // Only listen for this user's tasks
+      }, () => {
+        console.log("Task updated, refreshing tasks");
+        fetchTasks();
+      })
+      .on('postgres_changes', { 
+        event: 'DELETE', 
+        schema: 'public',
+        table: 'tasks',
+        filter: `user_id=eq.${user.id}` // Only listen for this user's tasks
+      }, () => {
+        console.log("Task deleted, refreshing tasks");
+        fetchTasks();
+      })
+      .subscribe((status) => {
+        console.log("Supabase channel status:", status);
+      });
       
     return () => {
+      console.log("Removing Supabase channel subscription");
       supabase.removeChannel(tasksSubscription);
     };
   }, [user]);
@@ -235,6 +269,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast("Task created", {
         description: `"${task.title}" has been added to your tasks`
       });
+      
+      // Force refresh tasks to ensure everything is up to date
+      await fetchTasks();
     } catch (error: any) {
       console.error("Error adding task:", error);
       toast.error("Failed to create task", {
@@ -272,6 +309,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast("Task updated", {
         description: "Your task has been updated successfully"
       });
+      
+      // Force refresh tasks to ensure everything is up to date
+      await fetchTasks();
     } catch (error: any) {
       console.error("Error updating task:", error);
       toast.error("Failed to update task", {
@@ -338,6 +378,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: `"${taskToDelete.title}" and its subtasks have been removed`
         });
       }
+      
+      // Force refresh tasks to ensure everything is up to date
+      await fetchTasks();
     } catch (error: any) {
       console.error("Error deleting task:", error);
       toast.error("Failed to delete task", {
@@ -426,7 +469,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getRootTasks,
       updateTaskOrder,
       markNotificationsAsSeen,
-      hasUnseenNotifications
+      hasUnseenNotifications,
+      refreshTasks // Added refreshTasks to the context
     }}>
       {children}
     </TaskContext.Provider>
