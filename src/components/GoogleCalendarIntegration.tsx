@@ -14,14 +14,6 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
-// To solve type errors, we need to declare these variables before referencing them
-declare global {
-  interface Window {
-    gapi: any;
-    google: any;
-  }
-}
-
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
