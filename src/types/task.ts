@@ -13,6 +13,7 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   children?: Task[]; // For nested structure
+  completed: boolean; // Added this property
 }
 
 export interface TaskWithPriority extends Task {

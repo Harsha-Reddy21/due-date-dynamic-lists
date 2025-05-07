@@ -196,7 +196,7 @@ const Settings: React.FC = () => {
                   <Switch
                     id="email-notifications"
                     checked={emailNotifications}
-                    onCheckedChange={setEmailNotifications}
+                    onCheckedChange={(checked: boolean) => setEmailNotifications(checked)}
                   />
                 </div>
                 <Separator />
@@ -210,7 +210,7 @@ const Settings: React.FC = () => {
                   <Switch
                     id="push-notifications"
                     checked={pushNotifications}
-                    onCheckedChange={setPushNotifications}
+                    onCheckedChange={(checked: boolean) => setPushNotifications(checked)}
                   />
                 </div>
               </CardContent>
