@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
@@ -100,11 +101,24 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('user_id', user.id)
           .single();
 
-        if (error) throw error;
+        // Handle the case where data might be an error object instead of the expected result
+        if (error) {
+          console.error('Error checking notification state:', error);
+          // Default to notifications not seen if there's an error
+          setNotificationsSeen(false);
+          setHasUnseenNotifications(true);
+          return;
+        }
 
-        if (data?.notifications_seen) {
-          setNotificationsSeen(true);
-          setHasUnseenNotifications(false);
+        // Check if data exists and has the notifications_seen property
+        if (data && 'notifications_seen' in data) {
+          const seen = Boolean(data.notifications_seen);
+          setNotificationsSeen(seen);
+          setHasUnseenNotifications(!seen);
+        } else {
+          // If there's no record yet, default to notifications not seen
+          setNotificationsSeen(false);
+          setHasUnseenNotifications(true);
         }
       } catch (error) {
         console.error('Error checking notification state:', error);

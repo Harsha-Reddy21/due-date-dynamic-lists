@@ -91,6 +91,7 @@ export type Database = {
           google_last_sync: string | null
           id: string
           is_google_connected: boolean | null
+          notifications_seen: boolean | null
           updated_at: string | null
           user_id: string
         }
@@ -101,6 +102,7 @@ export type Database = {
           google_last_sync?: string | null
           id?: string
           is_google_connected?: boolean | null
+          notifications_seen?: boolean | null
           updated_at?: string | null
           user_id: string
         }
@@ -111,6 +113,7 @@ export type Database = {
           google_last_sync?: string | null
           id?: string
           is_google_connected?: boolean | null
+          notifications_seen?: boolean | null
           updated_at?: string | null
           user_id?: string
         }
