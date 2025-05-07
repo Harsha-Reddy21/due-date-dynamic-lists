@@ -19,6 +19,7 @@ const GoogleCalendarIntegration = () => {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false); // Added missing isLoading state
   const { tasks } = useTaskContext();
   const { user } = useAuth();
 
