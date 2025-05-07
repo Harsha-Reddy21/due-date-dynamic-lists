@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
@@ -107,9 +106,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
-          calendarEventId: task.calendar_event_id,
-          // The completed property exists in the database schema now that we've added it
           completed: Boolean(task.completed),
+          calendarEventId: task.calendar_event_id || undefined,
         }));
         
         setFlatTasks(formattedTasks);
