@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { BellRing, HelpCircle, Menu } from "lucide-react";
@@ -27,7 +28,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { tasks } = useTaskContext();
+  const { tasks, markNotificationsAsSeen } = useTaskContext();
   const location = useLocation();
   const navigate = useNavigate();
   const [notificationCount, setNotificationCount] = useState(0);
@@ -36,7 +37,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     tomorrow: any[];
   }>({ today: [], tomorrow: [] });
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [viewedNotifications, setViewedNotifications] = useState<string[]>([]);
   const [notificationsShown, setNotificationsShown] = useState(false);
   
   // Calculate notifications based on due dates
@@ -67,11 +67,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         today: dueTodayTasks,
         tomorrow: dueTomorrowTasks
       });
-      
-      // Calculate unviewed notification count - only include tasks that haven't been viewed
-      const allTaskIds = [...dueTodayTasks, ...dueTomorrowTasks].map(task => task.id);
-      const unviewedCount = allTaskIds.filter(id => !viewedNotifications.includes(id)).length;
-      setNotificationCount(unviewedCount);
+
+      // Only update notification count if notifications haven't been seen
+      const { hasUnseenNotifications } = useTaskContext();
+      setNotificationCount(hasUnseenNotifications ? dueTodayTasks.length + dueTomorrowTasks.length : 0);
       
       // Show notification toast only once per session
       if (!notificationsShown && (dueTodayTasks.length > 0 || dueTomorrowTasks.length > 0)) {
@@ -103,18 +102,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setNotifications({ today: [], tomorrow: [] });
       setNotificationCount(0);
     }
-  }, [tasks, viewedNotifications, notificationsShown]);
+  }, [tasks, notificationsShown]);
   
   const handleNotificationClick = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
     
     if (!isNotificationsOpen) {
-      // Mark all notifications as viewed when opening the menu
-      const allTaskIds = [...notifications.today, ...notifications.tomorrow].map(task => task.id);
-      setViewedNotifications(prevViewed => {
-        const uniqueIds = new Set([...prevViewed, ...allTaskIds]);
-        return Array.from(uniqueIds);
-      });
+      // Mark all notifications as seen when opening the menu
+      markNotificationsAsSeen();
       setNotificationCount(0);
     }
   };
