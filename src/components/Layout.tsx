@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { BellRing, HelpCircle, Menu } from "lucide-react";
@@ -69,11 +68,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         tomorrow: dueTomorrowTasks
       });
       
-      // Calculate unviewed notification count
-      const unviewedCount = [...dueTodayTasks, ...dueTomorrowTasks]
-        .filter(task => !viewedNotifications.includes(task.id))
-        .length;
-      
+      // Calculate unviewed notification count - only include tasks that haven't been viewed
+      const allTaskIds = [...dueTodayTasks, ...dueTomorrowTasks].map(task => task.id);
+      const unviewedCount = allTaskIds.filter(id => !viewedNotifications.includes(id)).length;
       setNotificationCount(unviewedCount);
       
       // Show notification toast only once per session
@@ -106,13 +103,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setNotifications({ today: [], tomorrow: [] });
       setNotificationCount(0);
     }
-  }, [tasks, viewedNotifications]);
+  }, [tasks, viewedNotifications, notificationsShown]);
   
   const handleNotificationClick = () => {
     setIsNotificationsOpen(!isNotificationsOpen);
     
     if (!isNotificationsOpen) {
-      // Mark all notifications as viewed when opening
+      // Mark all notifications as viewed when opening the menu
       const allTaskIds = [...notifications.today, ...notifications.tomorrow].map(task => task.id);
       setViewedNotifications(prevViewed => {
         const uniqueIds = new Set([...prevViewed, ...allTaskIds]);

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
@@ -27,6 +28,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hierarchicalTasks, setHierarchicalTasks] = useState<TaskWithPriority[]>([]);
   const [topTasks, setTopTasks] = useState<TaskWithPriority[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [notificationsShown, setNotificationsShown] = useState(false);
   
   // Check for due tasks and show notifications
   useEffect(() => {
@@ -88,8 +90,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
-          // Use the completed property from the database or default to false
-          completed: task.completed === true, 
+          completed: task.completed === true, // Here's the fix - use a boolean expression to handle when completed is undefined
         }));
         
         setFlatTasks(formattedTasks);
