@@ -30,9 +30,21 @@ const Settings: React.FC = () => {
   const [googleClientId, setGoogleClientId] = useState<string>(localStorage.getItem('google_client_id') || '');
   const [googleClientSecret, setGoogleClientSecret] = useState<string>(localStorage.getItem('google_client_secret') || '');
 
+  // Initialize credentials state on component mount
+  useEffect(() => {
+    // This handles the case where credentials were just saved but component didn't refresh
+    setGoogleClientId(localStorage.getItem('google_client_id') || '');
+    setGoogleClientSecret(localStorage.getItem('google_client_secret') || '');
+  }, []);
+
   const saveGoogleCredentials = () => {
     localStorage.setItem('google_client_id', googleClientId);
     localStorage.setItem('google_client_secret', googleClientSecret);
+    
+    // Force a reload of the GoogleCalendarIntegration component
+    // This is a simple approach - in a production app, you might use context or state management
+    window.dispatchEvent(new Event('storage'));
+    
     toast.success('Google credentials saved successfully');
   };
 

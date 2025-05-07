@@ -10,7 +10,6 @@ import { Progress } from './ui/progress';
 import '@/types/google-api.d.ts';
 
 // Configuration
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
@@ -23,12 +22,21 @@ const GoogleCalendarIntegration = () => {
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [events, setEvents] = useState<any[]>([]);
+  const [credentialsEntered, setCredentialsEntered] = useState(false);
   const { tasks } = useTaskContext();
   
   // These are set up as variables to be used throughout the component
   const [gapiInstance, setGapiInstance] = useState<typeof window.gapi | null>(null);
   const [googleInstance, setGoogleInstance] = useState<typeof window.google | null>(null);
   const [tokenClient, setTokenClient] = useState<any>(null);
+  
+  // Check if credentials exist
+  useEffect(() => {
+    const clientId = localStorage.getItem('google_client_id');
+    const clientSecret = localStorage.getItem('google_client_secret');
+    
+    setCredentialsEntered(!!(clientId && clientSecret));
+  }, []);
   
   useEffect(() => {
     // Load the Google API client
@@ -42,18 +50,23 @@ const GoogleCalendarIntegration = () => {
     if (accessToken && expiresAt) {
       const isExpired = new Date().getTime() > parseInt(expiresAt);
       setIsConnected(!isExpired);
-      setIsLoading(false);
       
-      // If we have a valid token, initialize the client
+      // If we have a valid token, initialize the client and fetch events
       if (!isExpired) {
         const lastSync = localStorage.getItem('google_last_sync');
         if (lastSync) {
           setLastSynced(lastSync);
         }
+        
+        // This will run after the component is fully mounted
+        setTimeout(() => {
+          fetchEvents();
+        }, 1000);
       }
-    } else {
-      setIsLoading(false);
     }
+    
+    // Set loading to false after checks
+    setIsLoading(false);
   }, []);
 
   const loadGapiClient = () => {
@@ -100,6 +113,13 @@ const GoogleCalendarIntegration = () => {
       setError('Failed to initialize Google Calendar API');
     }
   };
+  
+  // Reinitialize GIS client when credentials change
+  useEffect(() => {
+    if (credentialsEntered && window.google && window.google.accounts) {
+      initializeGisClient();
+    }
+  }, [credentialsEntered]);
   
   const initializeGisClient = () => {
     try {
@@ -150,31 +170,47 @@ const GoogleCalendarIntegration = () => {
       
       setIsConnected(true);
       toast.success('Successfully connected to Google Calendar!');
+      
+      // Auto-fetch events after connecting
+      setTimeout(() => {
+        fetchEvents();
+      }, 500);
     }
     
     setIsConnecting(false);
-    fetchEvents();
   };
   
   const handleConnect = () => {
+    // Verify credentials exist first
+    const clientId = localStorage.getItem('google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    const clientSecret = localStorage.getItem('google_client_secret') || import.meta.env.VITE_GOOGLE_CLIENT_SECRET || '';
+    
+    if (!clientId || !clientSecret) {
+      toast.error('Google credentials not found. Please set them above first.');
+      setError('Google credentials not set. Enter them in the form above.');
+      return;
+    }
+    
     setIsConnecting(true);
     setError(null);
     
-    // Check if Google Client ID is set
-    const clientId = localStorage.getItem('google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    if (!clientId) {
-      toast.error('Google Client ID not found. Please set it in the Settings tab.');
-      setError('Google Client ID not set. Go to the Settings tab to configure it.');
-      setIsConnecting(false);
-      return;
-    }
-    
     if (!tokenClient) {
-      toast.error('Google Calendar API is not initialized yet. Please try again.');
-      setIsConnecting(false);
-      return;
+      // Reinitialize client if not available
+      initializeGisClient();
+      setTimeout(() => {
+        if (tokenClient) {
+          requestToken();
+        } else {
+          toast.error('Google Calendar API is not initialized yet. Please try again.');
+          setIsConnecting(false);
+        }
+      }, 1000);
+    } else {
+      requestToken();
     }
-    
+  };
+  
+  const requestToken = () => {
     try {
       // Request an access token
       tokenClient.requestAccessToken({
@@ -201,6 +237,7 @@ const GoogleCalendarIntegration = () => {
             localStorage.removeItem('google_last_sync');
             setIsConnected(false);
             setLastSynced(null);
+            setEvents([]);
             toast.success('Disconnected from Google Calendar');
             setIsLoading(false);
           });
@@ -211,6 +248,7 @@ const GoogleCalendarIntegration = () => {
           localStorage.removeItem('google_last_sync');
           setIsConnected(false);
           setLastSynced(null);
+          setEvents([]);
           setIsLoading(false);
         }
       } else {
@@ -220,6 +258,7 @@ const GoogleCalendarIntegration = () => {
         localStorage.removeItem('google_last_sync');
         setIsConnected(false);
         setLastSynced(null);
+        setEvents([]);
         setIsLoading(false);
       }
     } catch (err) {
@@ -230,12 +269,16 @@ const GoogleCalendarIntegration = () => {
   };
 
   const fetchEvents = async () => {
-    if (!window.gapi || !window.gapi.client || !window.gapi.client.calendar) {
+    if (!window.gapi || !window.gapi.client) {
       console.error('Google Calendar API not loaded yet');
       return;
     }
     
     try {
+      if (!window.gapi.client.calendar) {
+        await window.gapi.client.load('calendar', 'v3');
+      }
+      
       const response = await window.gapi.client.calendar.events.list({
         'calendarId': 'primary',
         'timeMin': new Date().toISOString(),
@@ -249,14 +292,34 @@ const GoogleCalendarIntegration = () => {
       setEvents(events || []);
     } catch (err: any) {
       console.error('Error fetching events:', err);
-      toast.error('Failed to fetch calendar events');
+      
+      // If unauthorized, clear tokens and show not connected
+      if (err.status === 401) {
+        localStorage.removeItem('google_access_token');
+        localStorage.removeItem('google_expires_at');
+        setIsConnected(false);
+        toast.error('Your Google Calendar session has expired. Please reconnect.');
+      } else {
+        toast.error('Failed to fetch calendar events');
+      }
     }
   };
 
   const handleSyncTasks = async () => {
-    if (!isConnected || !window.gapi || !window.gapi.client || !window.gapi.client.calendar) {
+    if (!isConnected || !window.gapi || !window.gapi.client) {
       toast.error('Please connect to Google Calendar first');
       return;
+    }
+    
+    // Make sure calendar API is loaded
+    if (!window.gapi.client.calendar) {
+      try {
+        await window.gapi.client.load('calendar', 'v3');
+      } catch (err) {
+        console.error('Failed to load calendar API:', err);
+        toast.error('Failed to load Google Calendar API');
+        return;
+      }
     }
     
     setIsSyncing(true);
@@ -294,31 +357,77 @@ const GoogleCalendarIntegration = () => {
           console.log(`Start time: ${startTime.toISOString()}`);
           console.log(`End time: ${endTime.toISOString()}`);
           
-          const event = {
-            'summary': task.title,
-            'description': task.description || '',
-            'start': {
-              'dateTime': startTime.toISOString(),
-              'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone,
-            },
-            'end': {
-              'dateTime': endTime.toISOString(),
-              'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone,
-            },
-            'reminders': {
-              'useDefault': true
+          // Check if task has calendarEventId already
+          let existingEventId = task.calendarEventId;
+          
+          if (existingEventId) {
+            // Update existing event
+            try {
+              const event = {
+                'summary': task.title,
+                'description': task.description || '',
+                'start': {
+                  'dateTime': startTime.toISOString(),
+                  'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+                },
+                'end': {
+                  'dateTime': endTime.toISOString(),
+                  'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+                },
+                'reminders': {
+                  'useDefault': true
+                }
+              };
+              
+              const response = await window.gapi.client.calendar.events.update({
+                'calendarId': 'primary',
+                'eventId': existingEventId,
+                'resource': event,
+              });
+              
+              if (response.status === 200) {
+                console.log(`Successfully updated task ${task.title} in calendar`);
+                successCount++;
+              }
+            } catch (updateErr) {
+              console.error(`Error updating event, will create new: ${updateErr}`);
+              existingEventId = null; // Force create new if update fails
             }
-          };
+          }
           
-          // Add the event
-          const response = await window.gapi.client.calendar.events.insert({
-            'calendarId': 'primary',
-            'resource': event,
-          });
-          
-          if (response.status === 200) {
-            console.log(`Successfully added task ${task.title} to calendar`);
-            successCount++;
+          if (!existingEventId) {
+            // Create new event
+            const event = {
+              'summary': task.title,
+              'description': task.description || '',
+              'start': {
+                'dateTime': startTime.toISOString(),
+                'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+              'end': {
+                'dateTime': endTime.toISOString(),
+                'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+              'reminders': {
+                'useDefault': true
+              }
+            };
+            
+            const response = await window.gapi.client.calendar.events.insert({
+              'calendarId': 'primary',
+              'resource': event,
+            });
+            
+            if (response.status === 200) {
+              console.log(`Successfully added task ${task.title} to calendar`);
+              
+              // TODO: In a full implementation, you would update the task in your database
+              // with the calendar event ID returned by the API
+              // task.calendarEventId = response.result.id;
+              // await updateTaskInDatabase(task);
+              
+              successCount++;
+            }
           }
         } catch (err) {
           console.error(`Error adding task ${task.title} to calendar:`, err);
@@ -346,7 +455,7 @@ const GoogleCalendarIntegration = () => {
               : "Your tasks are now visible in your Google Calendar"
           }
         );
-        fetchEvents();
+        fetchEvents(); // Refresh events list after syncing
       }, 500);
     } catch (err) {
       console.error("Error syncing tasks:", err);
@@ -362,8 +471,6 @@ const GoogleCalendarIntegration = () => {
     const now = new Date().toISOString();
     localStorage.setItem('google_last_sync', now);
     setLastSynced(now);
-    
-    toast.success('Calendar refreshed');
   };
 
   return (
@@ -403,7 +510,7 @@ const GoogleCalendarIntegration = () => {
               </AlertDescription>
             </Alert>
             
-            {events.length > 0 && (
+            {events.length > 0 ? (
               <div className="mt-4">
                 <h3 className="text-sm font-medium mb-2">Upcoming Events</h3>
                 <ul className="space-y-2">
@@ -416,6 +523,10 @@ const GoogleCalendarIntegration = () => {
                     </li>
                   ))}
                 </ul>
+              </div>
+            ) : (
+              <div className="mt-4 text-sm text-muted-foreground">
+                No upcoming events found. Sync your tasks to create calendar events.
               </div>
             )}
             
@@ -439,9 +550,9 @@ const GoogleCalendarIntegration = () => {
               <AlertTitle>Not Connected</AlertTitle>
               <AlertDescription>
                 You need to connect your Google account to sync your tasks with Google Calendar.
-                {!localStorage.getItem('google_client_id') && (
+                {!credentialsEntered && (
                   <p className="mt-2 text-sm font-medium text-amber-600">
-                    Please set your Google Client ID in the settings above first.
+                    Please set your Google Client ID and Secret in the settings above first.
                   </p>
                 )}
               </AlertDescription>
@@ -473,7 +584,7 @@ const GoogleCalendarIntegration = () => {
         ) : (
           <Button 
             onClick={handleConnect} 
-            disabled={isConnecting || isLoading || !localStorage.getItem('google_client_id')}
+            disabled={isConnecting || isLoading || !credentialsEntered}
           >
             <Calendar className="mr-2 h-4 w-4" />
             {isConnecting ? "Connecting..." : "Connect Google Calendar"}
