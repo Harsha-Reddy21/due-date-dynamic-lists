@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw, LogOut, Plus } from 'lucide-react';
@@ -10,7 +11,6 @@ import '@/types/google-api.d.ts';
 
 // Configuration
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
@@ -81,7 +81,7 @@ const GoogleCalendarIntegration = () => {
   const initializeGapiClient = async () => {
     try {
       // Get API key from local storage or environment
-      const apiKey = import.meta.env.VITE_GOOGLE_API_KEY || '';
+      const apiKey = localStorage.getItem('google_api_key') || import.meta.env.VITE_GOOGLE_API_KEY || '';
       
       await window.gapi.client.init({
         apiKey: apiKey,
@@ -276,6 +276,8 @@ const GoogleCalendarIntegration = () => {
       const stepSize = totalTasks > 0 ? 100 / totalTasks : 100;
       let successCount = 0;
       
+      console.log(`Starting to sync ${totalTasks} tasks to Google Calendar`);
+      
       // Process tasks
       for (let i = 0; i < tasksToSync.length; i++) {
         const task = tasksToSync[i];
@@ -283,14 +285,21 @@ const GoogleCalendarIntegration = () => {
         try {
           // Convert task to calendar event
           const startTime = task.dueDate ? new Date(task.dueDate) : new Date();
-          const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour duration
+          
+          // Set the end time to 1 hour after the start time
+          const endTime = new Date(startTime);
+          endTime.setHours(endTime.getHours() + 1);
+          
+          console.log(`Creating calendar event for task: ${task.title}`);
+          console.log(`Start time: ${startTime.toISOString()}`);
+          console.log(`End time: ${endTime.toISOString()}`);
           
           const event = {
             'summary': task.title,
             'description': task.description || '',
             'start': {
               'dateTime': startTime.toISOString(),
-              'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone, 
+              'timeZone': Intl.DateTimeFormat().resolvedOptions().timeZone,
             },
             'end': {
               'dateTime': endTime.toISOString(),
@@ -308,6 +317,7 @@ const GoogleCalendarIntegration = () => {
           });
           
           if (response.status === 200) {
+            console.log(`Successfully added task ${task.title} to calendar`);
             successCount++;
           }
         } catch (err) {

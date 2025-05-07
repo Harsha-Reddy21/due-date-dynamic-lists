@@ -1,23 +1,22 @@
+
 import React, { useState } from "react";
 import TaskForm from "./TaskForm";
 import TaskList from "./TaskList";
 import CalendarView from "./CalendarView";
-import GoogleCalendarIntegration from "./GoogleCalendarIntegration";
 import { useTaskContext } from "@/contexts/TaskContext";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Plus, ListChecks, Clock, ArrowUp, Calendar, Bell } from "lucide-react";
+import { Plus, ListChecks, Clock, ArrowUp, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { format, isToday, isTomorrow, startOfDay, endOfDay } from "date-fns";
+import { format, isToday, isTomorrow } from "date-fns";
 import { Badge } from "./ui/badge";
 
 const Dashboard: React.FC = () => {
   const { tasks, topTasks, getRootTasks } = useTaskContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"list" | "calendar">("list");
-  const [showCalendarIntegration, setShowCalendarIntegration] = useState(false);
+  const [activeView, setActiveView] = useState<"list" | "calendar">("calendar");
   
   const rootTasks = getRootTasks();
   
@@ -89,23 +88,6 @@ const Dashboard: React.FC = () => {
       </div>
       
       <div className="flex flex-col gap-8">
-        {/* Google Calendar Integration */}
-        <div>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold">Google Calendar</h2>
-            <Button 
-              variant={showCalendarIntegration ? "outline" : "default"}
-              onClick={() => setShowCalendarIntegration(!showCalendarIntegration)}
-            >
-              {showCalendarIntegration ? "Hide Integration" : "Connect Calendar"}
-            </Button>
-          </div>
-          
-          {showCalendarIntegration && (
-            <GoogleCalendarIntegration />
-          )}
-        </div>
-        
         {/* Priority Tasks Section */}
         <div>
           <div className="flex justify-between items-center mb-6">
