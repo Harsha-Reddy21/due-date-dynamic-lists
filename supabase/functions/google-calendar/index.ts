@@ -129,7 +129,7 @@ serve(async (req) => {
       return new Response(null, {
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       });
@@ -138,7 +138,7 @@ serve(async (req) => {
     // Define CORS headers for all responses
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
     
@@ -288,6 +288,78 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify(calendarData),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+    
+    // Delete event endpoint - deletes a calendar event
+    if (path === '/delete_event' && req.method === 'DELETE') {
+      const { authorized, user, error } = await validateAuth(req);
+      
+      if (!authorized) {
+        return createErrorResponse(401, error || 'Unauthorized');
+      }
+      
+      // Parse request body
+      let body;
+      try {
+        body = await req.json();
+      } catch (e) {
+        return createErrorResponse(400, 'Invalid request body');
+      }
+      
+      const { eventId } = body;
+      
+      if (!eventId) {
+        return createErrorResponse(400, 'Missing required event ID');
+      }
+      
+      // Get tokens for the user
+      const tokens = await getTokensForUser(user.id);
+      let accessToken = tokens.access_token;
+      
+      // Try to refresh the token if available and needed
+      if (tokens.refresh_token) {
+        try {
+          accessToken = await refreshAccessToken(tokens.refresh_token);
+          await storeTokensForUser(user.id, accessToken, tokens.refresh_token);
+        } catch (e) {
+          console.error('Failed to refresh token:', e);
+        }
+      }
+      
+      // Delete calendar event
+      const calendarResponse = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        },
+      );
+      
+      if (!calendarResponse.ok) {
+        if (calendarResponse.status === 404) {
+          // Event not found - it's already deleted or never existed
+          return new Response(
+            JSON.stringify({ success: true, message: 'Event was already deleted or does not exist' }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            },
+          );
+        }
+        
+        // Other error
+        const errorData = await calendarResponse.json();
+        console.error('Calendar API error:', errorData);
+        return createErrorResponse(calendarResponse.status, `Failed to delete event: ${errorData.error?.message || 'Unknown error'}`);
+      }
+      
+      return new Response(
+        JSON.stringify({ success: true }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },

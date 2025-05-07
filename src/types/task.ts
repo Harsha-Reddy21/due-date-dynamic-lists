@@ -8,6 +8,7 @@ export interface Task {
   title: string;
   description: string;
   dueDate: string; // ISO format date string (includes time)
+  dueTime?: string; // Optional time string in HH:MM format
   weight: Weight;
   priorityScore?: number; // Computed dynamically
   createdAt: string;

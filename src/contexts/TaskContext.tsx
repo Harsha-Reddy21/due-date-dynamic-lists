@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
@@ -18,6 +19,7 @@ interface TaskContextProps {
   getRootTasks: () => TaskWithPriority[];
   updateTaskOrder: (newOrder: TaskWithPriority[], parentId: string | null) => void;
   markNotificationsAsSeen: () => void;
+  hasUnseenNotifications: boolean;
 }
 
 const TaskContext = createContext<TaskContextProps | undefined>(undefined);
@@ -32,6 +34,10 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // For tracking if notifications have been seen
   const [notificationsSeen, setNotificationsSeen] = useState(true);
+  const [hasUnseenNotifications, setHasUnseenNotifications] = useState(false);
+  
+  // Store page navigation history to detect actual page changes
+  const lastPathRef = useRef(window.location.pathname);
   
   // Track initial load
   const initialLoadRef = useRef(true);
@@ -47,12 +53,14 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       tomorrow.setDate(tomorrow.getDate() + 1);
       
       const dueTodayTasks = flatTasks.filter(task => {
+        if (!task.dueDate) return false;
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === today.getTime();
       });
       
       const dueTomorrowTasks = flatTasks.filter(task => {
+        if (!task.dueDate) return false;
         const dueDate = new Date(task.dueDate);
         dueDate.setHours(0, 0, 0, 0);
         return dueDate.getTime() === tomorrow.getTime();
@@ -62,6 +70,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // and this isn't the initial load
       if ((dueTodayTasks.length > 0 || dueTomorrowTasks.length > 0) && !initialLoadRef.current) {
         setNotificationsSeen(false);
+        setHasUnseenNotifications(true);
       }
       
       // After first load, set initialLoad to false
@@ -70,6 +79,23 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
   }, [flatTasks]);
+  
+  // Listen for page navigation to avoid resetting notification state
+  useEffect(() => {
+    const handleRouteChange = () => {
+      const currentPath = window.location.pathname;
+      if (currentPath !== lastPathRef.current) {
+        lastPathRef.current = currentPath;
+        // Don't reset notification state on page change
+      }
+    };
+    
+    window.addEventListener('popstate', handleRouteChange);
+    
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+    };
+  }, []);
   
   // Fetch tasks from Supabase when user changes
   useEffect(() => {
@@ -177,6 +203,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Mark notifications as seen
   const markNotificationsAsSeen = () => {
     setNotificationsSeen(true);
+    setHasUnseenNotifications(false);
   };
   
   // Add new task
@@ -261,14 +288,45 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // First find the task to be deleted for notification
+    // First find the task to be deleted for notification and Google Calendar deletion
     const taskToDelete = flatTasks.find(t => t.id === taskId);
     
     try {
-      // First, get all subtasks recursively
+      // Delete the task from Google Calendar if it has a calendarEventId
+      if (taskToDelete && taskToDelete.calendarEventId && window.gapi && window.gapi.client) {
+        try {
+          await window.gapi.client.calendar.events.delete({
+            'calendarId': 'primary',
+            'eventId': taskToDelete.calendarEventId
+          });
+          console.log(`Successfully deleted Google Calendar event for task: ${taskToDelete.title}`);
+        } catch (calendarError) {
+          console.error("Error deleting Google Calendar event:", calendarError);
+          // Continue with task deletion even if Calendar deletion fails
+        }
+      }
+      
+      // Get all subtasks recursively
       const subtaskIds = getSubtaskIds(taskId);
       
-      // Delete the task and all its subtasks
+      // For each subtask that has a calendar event, delete it from Google Calendar
+      for (const subtaskId of subtaskIds) {
+        const subtask = flatTasks.find(t => t.id === subtaskId);
+        if (subtask && subtask.calendarEventId && window.gapi && window.gapi.client) {
+          try {
+            await window.gapi.client.calendar.events.delete({
+              'calendarId': 'primary',
+              'eventId': subtask.calendarEventId
+            });
+            console.log(`Successfully deleted Google Calendar event for subtask: ${subtask.title}`);
+          } catch (calendarError) {
+            console.error("Error deleting Google Calendar event for subtask:", calendarError);
+            // Continue with subtask deletion even if Calendar deletion fails
+          }
+        }
+      }
+      
+      // Delete the task and all its subtasks from the database
       const { error } = await supabase
         .from('tasks')
         .delete()
@@ -368,7 +426,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getTaskChildren,
       getRootTasks,
       updateTaskOrder,
-      markNotificationsAsSeen
+      markNotificationsAsSeen,
+      hasUnseenNotifications
     }}>
       {children}
     </TaskContext.Provider>

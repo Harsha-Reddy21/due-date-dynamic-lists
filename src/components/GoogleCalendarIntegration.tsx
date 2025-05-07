@@ -457,10 +457,22 @@ const GoogleCalendarIntegration = () => {
             if (response.status === 200) {
               console.log(`Successfully added task ${task.title} to calendar`);
               
-              // TODO: In a full implementation, you would update the task in your database
-              // with the calendar event ID returned by the API
-              // task.calendarEventId = response.result.id;
-              // await updateTaskInDatabase(task);
+              // Store the calendar event ID in the task
+              const calendarEventId = response.result.id;
+              
+              // Update the task with the calendar event ID
+              if (calendarEventId) {
+                try {
+                  await supabase
+                    .from('tasks')
+                    .update({ calendar_event_id: calendarEventId })
+                    .eq('id', task.id);
+                  
+                  console.log(`Updated task ${task.id} with calendar event ID ${calendarEventId}`);
+                } catch (updateErr) {
+                  console.error(`Error updating task with calendar event ID: ${updateErr}`);
+                }
+              }
               
               successCount++;
             }
