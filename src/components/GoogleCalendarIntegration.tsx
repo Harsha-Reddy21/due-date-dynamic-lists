@@ -34,8 +34,8 @@ const GoogleCalendarIntegration = () => {
   const { tasks } = useTaskContext();
   
   // These are set up as variables to be used throughout the component
-  const [gapi, setGapi] = useState<typeof window.gapi | null>(null);
-  const [google, setGoogle] = useState<typeof window.google | null>(null);
+  const [gapiInstance, setGapiInstance] = useState<typeof window.gapi | null>(null);
+  const [googleInstance, setGoogleInstance] = useState<typeof window.google | null>(null);
   const [tokenClient, setTokenClient] = useState<any>(null);
   
   useEffect(() => {
@@ -70,7 +70,7 @@ const GoogleCalendarIntegration = () => {
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      setGapi(window.gapi);
+      setGapiInstance(window.gapi);
       window.gapi.load('client', initializeGapiClient);
     };
     document.body.appendChild(script);
@@ -80,7 +80,7 @@ const GoogleCalendarIntegration = () => {
     gisScript.async = true;
     gisScript.defer = true;
     gisScript.onload = () => {
-      setGoogle(window.google);
+      setGoogleInstance(window.google);
       initializeGisClient();
     };
     document.body.appendChild(gisScript);
