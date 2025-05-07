@@ -11,6 +11,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import TaskForm from "./TaskForm";
+import { toast } from "./ui/sonner";
 
 interface TaskListProps {
   tasks?: TaskWithPriority[];
@@ -80,7 +81,10 @@ const TaskList: React.FC<TaskListProps> = ({
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refreshTasks();
-    setTimeout(() => setIsRefreshing(false), 500); // Add a small delay for better UX
+    setTimeout(() => {
+      setIsRefreshing(false);
+      toast.success("Tasks refreshed successfully");
+    }, 500); // Add a small delay for better UX
   };
   
   if (isLoading) {
@@ -96,14 +100,14 @@ const TaskList: React.FC<TaskListProps> = ({
   
   if (tasksToRender.length === 0) {
     return (
-      <div className="text-center py-12 border border-dashed rounded-md bg-gray-50">
-        <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className={`text-center py-8 border border-dashed rounded-md bg-gray-50 ${nestingLevel > 0 ? 'py-6' : 'py-12'}`}>
+        <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
         </div>
-        <p className="text-muted-foreground mb-1">No tasks found</p>
-        <p className="text-sm text-muted-foreground">Create a new task to get started</p>
+        <p className="text-muted-foreground text-sm mb-1">{nestingLevel > 0 ? 'No subtasks found' : 'No tasks found'}</p>
+        <p className="text-xs text-muted-foreground">{nestingLevel > 0 ? 'Add a subtask to get started' : 'Create a new task to get started'}</p>
       </div>
     );
   }
@@ -157,14 +161,15 @@ const TaskList: React.FC<TaskListProps> = ({
       </div>
       
       <SortableContext items={sortedTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {sortedTasks.map((task) => (
-            <div key={task.id} className={nestingLevel > 0 ? `pl-${nestingLevel * 4} border-l-2 border-gray-100` : ''}>
+            <div key={task.id} className={nestingLevel > 0 ? `pl-${nestingLevel * 4} ml-2 border-l-2 border-gray-100` : ''}>
               <SortableTaskItem id={task.id}>
                 <TaskCard 
                   task={task} 
                   showScore={showScore} 
-                  onAddSubtask={() => handleAddSubtask(task.id)} 
+                  onAddSubtask={() => handleAddSubtask(task.id)}
+                  isSubtask={nestingLevel > 0}
                 />
               </SortableTaskItem>
               
@@ -183,7 +188,7 @@ const TaskList: React.FC<TaskListProps> = ({
                 <div className="mt-2">
                   <TaskList
                     tasks={task.children as TaskWithPriority[]}
-                    showScore={showScore}
+                    showScore={false}
                     nestingLevel={nestingLevel + 1}
                     parentId={task.id}
                   />

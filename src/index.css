@@ -136,9 +136,22 @@
     line-height: 1.75rem;
   }
   
-  /* Task indentation */
+  /* Task indentation - improved for subtasks */
   .task-nested {
     @apply pl-4 border-l-2 border-gray-100;
+  }
+  
+  /* Subtask specific styling */
+  .subtask {
+    @apply text-xs;
+  }
+  
+  .subtask-title {
+    @apply text-xs font-medium;
+  }
+  
+  .subtask-description {
+    @apply text-xs text-gray-500;
   }
 }
 
@@ -169,7 +182,7 @@
   }
   
   .task-title {
-    @apply font-medium text-base text-gray-800;
+    @apply font-medium text-sm text-gray-800;
   }
   
   .task-description {
@@ -178,5 +191,10 @@
   
   .task-meta {
     @apply flex items-center gap-2 text-xs mt-2;
+  }
+  
+  /* Subtask specific styling */
+  .subtask-card {
+    @apply border border-gray-100 rounded-lg p-2 bg-white;
   }
 }

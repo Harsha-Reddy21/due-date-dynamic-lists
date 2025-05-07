@@ -69,6 +69,24 @@ const GoogleCalendarIntegration = () => {
     setIsLoading(false);
   }, []);
 
+  useEffect(() => {
+    // If we're connected, set up auto-sync
+    if (isConnected && !isLoading) {
+      // Initial sync when connected
+      handleSyncTasks();
+      
+      // Set up periodic sync every 5 minutes
+      const autoSyncInterval = setInterval(() => {
+        console.log("Auto-syncing with Google Calendar");
+        handleSyncTasks();
+      }, 5 * 60 * 1000); // 5 minutes
+      
+      return () => {
+        clearInterval(autoSyncInterval);
+      };
+    }
+  }, [isConnected, isLoading]);
+
   const loadGapiClient = () => {
     const script = document.createElement('script');
     script.src = 'https://apis.google.com/js/api.js';
@@ -326,13 +344,19 @@ const GoogleCalendarIntegration = () => {
 
   const handleSyncTasks = async () => {
     if (!isConnected || !window.gapi || !window.gapi.client) {
-      toast.error('Please connect to Google Calendar first');
+      console.error("Google Calendar not connected");
       return;
     }
     
-    // Make sure calendar API is loaded
+    // Don't show loading state during auto-sync
+    const isAutoSync = !isSyncing;
+    if (!isAutoSync) {
+      setIsSyncing(true);
+      setSyncProgress(0);
+    }
+    
     try {
-      // Check if calendar API is loaded, if not initialize it
+      // Make sure calendar API is loaded
       if (!window.gapi.client.calendar) {
         await new Promise<void>((resolve) => {
           if (window.gapi) {
@@ -342,6 +366,8 @@ const GoogleCalendarIntegration = () => {
                   discoveryDocs: [DISCOVERY_DOC]
                 }).then(() => {
                   resolve();
+                }).catch(() => {
+                  resolve(); // Continue even if there's an error
                 });
               } else {
                 resolve();
@@ -352,16 +378,7 @@ const GoogleCalendarIntegration = () => {
           }
         });
       }
-    } catch (err) {
-      console.error('Failed to load calendar API:', err);
-      toast.error('Failed to load Google Calendar API');
-      return;
-    }
-    
-    setIsSyncing(true);
-    setSyncProgress(0);
-    
-    try {
+      
       // Get tasks that are due today or in the future
       const tasksToSync = tasks.filter(task => {
         if (!task.dueDate) return false;
@@ -389,9 +406,7 @@ const GoogleCalendarIntegration = () => {
           const endTime = new Date(startTime);
           endTime.setHours(endTime.getHours() + 1);
           
-          console.log(`Creating calendar event for task: ${task.title}`);
-          console.log(`Start time: ${startTime.toISOString()}`);
-          console.log(`End time: ${endTime.toISOString()}`);
+          console.log(`Creating/updating calendar event for task: ${task.title}`);
           
           // Check if task has calendarEventId already
           let existingEventId = task.calendarEventId;
@@ -483,9 +498,11 @@ const GoogleCalendarIntegration = () => {
           console.error(`Error adding task ${task.title} to calendar:`, err);
         }
         
-        // Update progress
-        const progress = Math.round(stepSize * (i + 1));
-        setSyncProgress(Math.min(progress, 100));
+        // Update progress only if not auto-sync
+        if (!isAutoSync) {
+          const progress = Math.round(stepSize * (i + 1));
+          setSyncProgress(Math.min(progress, 100));
+        }
       }
       
       // Update last synced time
@@ -496,24 +513,29 @@ const GoogleCalendarIntegration = () => {
       // Refresh tasks to get the updated calendarEventId values
       await refreshTasks();
       
-      setTimeout(() => {
-        setIsSyncing(false);
-        toast.success(
-          successCount === 0 
-            ? "No tasks to sync" 
-            : `${successCount} task${successCount === 1 ? '' : 's'} synced to Google Calendar!`,
-          {
-            description: successCount === 0 
-              ? "Add tasks with due dates to sync them" 
-              : "Your tasks are now visible in your Google Calendar"
+      if (!isAutoSync) {
+        setTimeout(() => {
+          setIsSyncing(false);
+          if (successCount > 0) {
+            toast.success(
+              `${successCount} task${successCount === 1 ? '' : 's'} synced to Google Calendar!`,
+              {
+                description: "Your tasks are now visible in your Google Calendar"
+              }
+            );
           }
-        );
-        fetchEvents(); // Refresh events list after syncing
-      }, 500);
+          fetchEvents(); // Refresh events list after syncing
+        }, 500);
+      } else {
+        // For auto-sync just refresh events quietly
+        fetchEvents();
+      }
     } catch (err) {
       console.error("Error syncing tasks:", err);
-      toast.error("Failed to sync tasks");
-      setIsSyncing(false);
+      if (!isAutoSync) {
+        toast.error("Failed to sync tasks");
+        setIsSyncing(false);
+      }
     }
   };
 

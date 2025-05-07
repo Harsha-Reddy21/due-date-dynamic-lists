@@ -37,9 +37,10 @@ interface TaskCardProps {
   task: Task;
   showScore?: boolean;
   onAddSubtask?: () => void;
+  isSubtask?: boolean;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtask }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtask, isSubtask = false }) => {
   const { deleteTask } = useTaskContext();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
@@ -99,60 +100,75 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
     deleteTask(task.id);
   };
   
+  // Apply different styles for subtasks
+  const titleClassName = isSubtask 
+    ? "font-medium text-xs text-gray-800"
+    : "font-medium text-sm text-gray-800";
+  
+  const descriptionClassName = isSubtask
+    ? "text-xs text-gray-600 mt-0.5"
+    : "text-xs text-gray-600 mt-1";
+    
+  const badgeClassName = isSubtask
+    ? "text-[10px]"
+    : "text-xs";
+    
   return (
-    <div className="flex flex-col p-4 border rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start mb-2">
+    <div className={`flex flex-col p-3 border rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow ${isSubtask ? 'border-gray-100' : 'border-gray-200'}`}>
+      <div className="flex justify-between items-start mb-1">
         <div>
-          <h3 className="font-medium text-base text-gray-800">{task.title}</h3>
-          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+          <h3 className={titleClassName}>{task.title}</h3>
+          {task.description && <p className={descriptionClassName}>{task.description}</p>}
         </div>
         
-        <div className="flex gap-2">
-          {showScore && task.priorityScore && (
+        <div className="flex gap-1">
+          {showScore && task.priorityScore && !isSubtask && (
             <Badge variant="outline" className="bg-primary-50 text-primary font-medium text-xs">
               Score: {formatPriorityScore(task.priorityScore)}
             </Badge>
           )}
           
-          <Badge className={`text-xs ${getPriorityColor(task.weight)}`}>
+          <Badge className={`${badgeClassName} ${getPriorityColor(task.weight)}`}>
             Priority: {task.weight}
           </Badge>
         </div>
       </div>
       
-      <div className="flex justify-between items-center mt-2">
-        <div className="flex gap-2">
-          <Badge variant="outline" className={`text-xs ${getDueDateColor()}`}>
-            <CalendarIcon className="mr-1 h-3 w-3" />
+      <div className="flex justify-between items-center mt-1">
+        <div className="flex gap-1">
+          <Badge variant="outline" className={`${badgeClassName} ${getDueDateColor()}`}>
+            <CalendarIcon className="mr-1 h-2.5 w-2.5" />
             {formattedDueDate}
           </Badge>
           
-          <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
-            <Clock className="mr-1 h-3 w-3" />
+          <Badge variant="outline" className={`${badgeClassName} bg-gray-50 text-gray-700`}>
+            <Clock className="mr-1 h-2.5 w-2.5" />
             {formattedTime}
           </Badge>
         </div>
         
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onAddSubtask}
-            className="h-8 w-8"
-            title="Add subtask"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
+        <div className="flex gap-1">
+          {!isSubtask && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onAddSubtask}
+              className="h-7 w-7"
+              title="Add subtask"
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+          )}
           
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-7 w-7"
                 title="Edit task"
               >
-                <Edit className="h-4 w-4" />
+                <Edit className="h-3 w-3" />
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
@@ -168,17 +184,17 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 hover:text-red-500"
+                className="h-7 w-7 hover:text-red-500"
                 title="Delete task"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3 w-3" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete "{task.title}" and all its subtasks.
+                  This will permanently delete "{task.title}" {!isSubtask && "and all its subtasks"}.
                   This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
