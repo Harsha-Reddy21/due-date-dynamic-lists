@@ -10,7 +10,9 @@ import {
   Edit, 
   Plus, 
   Trash2,
-  Clock
+  Clock,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import {
   Dialog,
@@ -32,6 +34,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import EditTaskForm from "./EditTaskForm";
+import { Checkbox } from "./ui/checkbox";
+import { toast } from "./ui/sonner";
 
 interface TaskCardProps {
   task: Task;
@@ -41,7 +45,7 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtask, isSubtask = false }) => {
-  const { deleteTask, getTaskColor } = useTaskContext();
+  const { deleteTask, getTaskColor, updateTask } = useTaskContext();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   // Format the due date to a relative time (e.g., "in 2 days", "2 days ago")
@@ -100,6 +104,15 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
     deleteTask(task.id);
   };
   
+  // Handle task completion toggle
+  const handleCompletionToggle = () => {
+    updateTask(task.id, { completed: !task.completed });
+    toast(task.completed ? "Task marked as incomplete" : "Task marked as complete", {
+      description: task.title,
+      duration: 3000,
+    });
+  };
+  
   // Get unique color for the task based on its ID
   const taskColor = getTaskColor(task.id);
   
@@ -116,27 +129,41 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
     ? "text-[10px] px-1.5 py-0.5"
     : "text-xs px-2 py-1";
 
-  // Determine border and background styles based on priority
+  // Determine border and background styles based on priority and completion status
   const priorityBorderStyle = `border-l-4 border-l-[${taskColor}]`;
+  const completedStyle = task.completed ? "opacity-60 bg-gray-50" : "";
   
   return (
     <div 
       className={`flex flex-col p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow ${
         isSubtask 
-          ? 'border border-gray-100 border-dashed bg-gray-50/60 mt-1.5 ml-4' 
-          : `border border-gray-200 border-solid bg-white ${priorityBorderStyle}`
+          ? `border border-gray-100 border-dashed bg-gray-50/60 mt-1.5 ml-4 ${task.completed ? "opacity-60" : ""}` 
+          : `border border-gray-200 border-solid bg-white ${priorityBorderStyle} ${completedStyle}`
       }`}
       style={isSubtask ? {} : { borderLeftColor: taskColor }}
     >
       <div className="flex justify-between items-start mb-1">
-        <div>
-          <h3 
-            className={titleClassName}
-            style={isSubtask ? {} : { color: taskColor }}
-          >
-            {task.title}
-          </h3>
-          {task.description && <p className={descriptionClassName}>{task.description}</p>}
+        <div className="flex items-start gap-2">
+          <div className="pt-0.5">
+            <Checkbox 
+              checked={task.completed}
+              onCheckedChange={handleCompletionToggle}
+              className="border-gray-400"
+            />
+          </div>
+          <div>
+            <h3 
+              className={`${titleClassName} ${task.completed ? "line-through text-gray-500" : ""}`}
+              style={isSubtask ? {} : { color: task.completed ? "#888" : taskColor }}
+            >
+              {task.title}
+            </h3>
+            {task.description && (
+              <p className={`${descriptionClassName} ${task.completed ? "text-gray-400" : ""}`}>
+                {task.description}
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex gap-1">
           {/* Show score for both main tasks and subtasks when score is available */}
@@ -153,7 +180,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
       </div>
       
       <div className="flex justify-between items-center mt-1">
-        <div className="flex gap-1">
+        <div className="flex gap-1 ml-7">
           <Badge variant="outline" className={`${badgeClassName} ${getDueDateColor()} border`}>
             <CalendarIcon className="mr-1 h-2.5 w-2.5" />
             {formattedDueDate}
