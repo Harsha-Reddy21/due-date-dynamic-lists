@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -8,7 +9,7 @@ import { useTaskContext } from '@/contexts/TaskContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Progress } from './ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import '@/types/google-api';
+import '@/types/google-api.d.ts';
 
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);

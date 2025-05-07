@@ -24,9 +24,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import GoogleCalendarIntegration from '@/components/GoogleCalendarIntegration';
 
 // Import Google API types - this will ensure TypeScript knows about window.gapi and window.google
-import '@/types/google-api';
+import '@/types/google-api.d.ts';
 
 const integrationFormSchema = z.object({
   clientId: z.string().min(1, "Client ID is required"),
@@ -400,86 +401,7 @@ const Settings: React.FC = () => {
           </TabsContent>
           
           <TabsContent value="integrations" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Google Calendar Integration</CardTitle>
-                <CardDescription>
-                  Connect your Google Calendar to sync tasks and events
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-6 w-6 text-blue-500" />
-                    <div>
-                      <p className="text-sm font-medium">Google Calendar</p>
-                      <p className="text-xs text-muted-foreground">
-                        {isGoogleConnected ? "Connected" : "Not connected"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {isGoogleConnected && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={handleGoogleDisconnect}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Processing...
-                        </>
-                      ) : "Disconnect"}
-                    </Button>
-                  )}
-                </div>
-                
-                {isGoogleConnected && (
-                  <Alert className="mt-4 bg-blue-50 border-blue-200">
-                    <div className="flex">
-                      <div className="text-blue-800">
-                        <AlertTitle className="text-blue-800">Google Calendar connected</AlertTitle>
-                        <AlertDescription className="text-blue-700">
-                          Your tasks will be synced with your Google Calendar. This integration will persist across sessions.
-                        </AlertDescription>
-                      </div>
-                    </div>
-                  </Alert>
-                )}
-                
-                {!isGoogleConnected && (
-                  <div>
-                    <Alert className="mb-4 bg-amber-50 border-amber-200">
-                      <Info className="h-4 w-4" />
-                      <AlertTitle>Using Test Credentials</AlertTitle>
-                      <AlertDescription>
-                        Using hardcoded client ID for testing purposes:
-                        <code className="block mt-2 p-2 bg-amber-100 rounded text-xs">
-                          661623544891-hjof33mf018260ld9gs9r3e2jfesq6ee.apps.googleusercontent.com
-                        </code>
-                      </AlertDescription>
-                    </Alert>
-                    
-                    <div className="flex flex-col gap-4 mt-4">                        
-                      <Button 
-                        type="button"
-                        onClick={handleGoogleConnect}
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Connecting...
-                          </>
-                        ) : "Connect Google Calendar (Test)"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <GoogleCalendarIntegration />
           </TabsContent>
           
           <TabsContent value="notifications" className="space-y-6">
