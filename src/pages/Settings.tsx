@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,9 @@ const Settings: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
+  const [gapiInited, setGapiInited] = useState(false);
+  const [gisInited, setGisInited] = useState(false);
+  const [tokenClient, setTokenClient] = useState<any>(null);
   
   // Form for Google Calendar credentials
   const form = useForm<IntegrationFormValues>({
@@ -84,7 +88,8 @@ const Settings: React.FC = () => {
     fetchUserSettings();
   }, [user, form]);
   
-  const handleGoogleConnect = async (values: IntegrationFormValues) => {
+  // Initialize Google API libraries
+  const handleGoogleInit = async (values: IntegrationFormValues) => {
     if (!user) {
       toast.error("You must be logged in to connect Google Calendar");
       return;
@@ -104,68 +109,167 @@ const Settings: React.FC = () => {
         
       if (error) throw error;
       
-      // Load the Google API client library
+      // Load the Google API client library if needed
       if (!window.gapi) {
-        const script = document.createElement('script');
-        script.src = "https://apis.google.com/js/api.js";
-        document.body.appendChild(script);
-        
-        await new Promise<void>((resolve) => {
-          script.onload = () => resolve();
-        });
+        loadScript('https://apis.google.com/js/api.js', gapiLoadedCallback);
+      } else if (!gapiInited) {
+        gapiLoadedCallback();
       }
       
-      await new Promise<void>((resolve) => {
-        window.gapi.load('client:auth2', () => resolve());
-      });
-      
-      // Initialize and authenticate with Google
-      await window.gapi.client.init({
-        apiKey: values.apiKey,
-        clientId: values.clientId,
-        scope: "https://www.googleapis.com/auth/calendar.readonly",
-        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]
-      });
-      
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      
-      if (!authInstance.isSignedIn.get()) {
-        await authInstance.signIn();
-        
-        // Update connection status in Supabase
-        await supabase
-          .from('user_settings')
-          .update({
-            is_google_connected: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
-          
-        toast.success("Google Calendar connected successfully");
-        setIsGoogleConnected(true);
-      } else {
-        // Update connection status in Supabase
-        await supabase
-          .from('user_settings')
-          .update({
-            is_google_connected: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
-          
-        toast.info("Already connected to Google Calendar");
-        setIsGoogleConnected(true);
+      // Load the Google Identity Services library if needed
+      if (!window.google?.accounts) {
+        loadScript('https://accounts.google.com/gsi/client', gisLoadedCallback);
+      } else if (!gisInited) {
+        gisLoadedCallback();
       }
+      
+      toast.success("Google API credentials saved", { 
+        description: "You can now connect to Google Calendar" 
+      });
     } catch (error) {
-      console.error("Google Calendar connection error:", error);
-      toast.error("Failed to connect Google Calendar", { 
-        description: "Please verify your credentials and try again" 
-      });
+      console.error("Error saving Google credentials:", error);
+      toast.error("Failed to save Google credentials");
     } finally {
       setIsLoading(false);
     }
   };
   
+  // Handle loading the GAPI script
+  const loadScript = (src: string, callback: () => void) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.defer = true;
+    script.onload = callback;
+    document.body.appendChild(script);
+  };
+  
+  // Callback after api.js is loaded
+  const gapiLoadedCallback = () => {
+    window.gapi.load('client', initializeGapiClient);
+  };
+  
+  // Initialize GAPI client
+  const initializeGapiClient = async () => {
+    try {
+      const apiKey = form.getValues('apiKey');
+      await window.gapi.client.init({
+        apiKey: apiKey,
+        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
+      });
+      setGapiInited(true);
+      maybeEnableButtons();
+    } catch (error) {
+      console.error("Error initializing GAPI client:", error);
+    }
+  };
+  
+  // Callback after Google Identity Services are loaded
+  const gisLoadedCallback = () => {
+    const clientId = form.getValues('clientId');
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/calendar.readonly',
+      callback: handleAuthResponse,
+    });
+    
+    setTokenClient(tokenClient);
+    setGisInited(true);
+    maybeEnableButtons();
+  };
+  
+  // Check if everything is loaded and ready
+  const maybeEnableButtons = () => {
+    if (gapiInited && gisInited) {
+      // Both APIs are initialized, ready to connect
+      toast.info("Google APIs initialized", {
+        description: "You can now connect to Google Calendar"
+      });
+    }
+  };
+  
+  // Handle auth response from Google
+  const handleAuthResponse = async (response: any) => {
+    if (response.error !== undefined) {
+      toast.error("Google authentication failed", { 
+        description: response.error 
+      });
+      return;
+    }
+    
+    // Successfully authenticated with Google
+    try {
+      // Update connection status in Supabase
+      await supabase
+        .from('user_settings')
+        .update({
+          is_google_connected: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user?.id);
+        
+      setIsGoogleConnected(true);
+      toast.success("Google Calendar connected successfully");
+      
+      // List upcoming events to confirm connection
+      await listUpcomingEvents();
+    } catch (error) {
+      console.error("Error updating connection status:", error);
+      toast.error("Failed to update connection status");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // List upcoming events from the calendar
+  const listUpcomingEvents = async () => {
+    try {
+      const request = {
+        'calendarId': 'primary',
+        'timeMin': (new Date()).toISOString(),
+        'showDeleted': false,
+        'singleEvents': true,
+        'maxResults': 10,
+        'orderBy': 'startTime',
+      };
+      
+      const response = await window.gapi.client.calendar.events.list(request);
+      const events = response.result.items;
+      
+      if (!events || events.length === 0) {
+        toast.info("No upcoming events found in your calendar");
+      } else {
+        toast.success(`Found ${events.length} upcoming events`);
+      }
+    } catch (err: any) {
+      console.error('Error listing calendar events:', err);
+      toast.error("Failed to fetch calendar events", { 
+        description: err.message 
+      });
+    }
+  };
+  
+  // Connect to Google Calendar
+  const handleGoogleConnect = () => {
+    if (!tokenClient) {
+      toast.error("Google API not initialized", {
+        description: "Please save your API credentials first"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    if (window.gapi.client.getToken() === null) {
+      // Prompt the user to select a Google Account and ask for consent to share their data
+      tokenClient.requestAccessToken({prompt: 'consent'});
+    } else {
+      // Skip display of account chooser and consent dialog for an existing session
+      tokenClient.requestAccessToken({prompt: ''});
+    }
+  };
+  
+  // Disconnect from Google Calendar
   const handleGoogleDisconnect = async () => {
     if (!user) {
       toast.error("You must be logged in to disconnect Google Calendar");
@@ -175,24 +279,23 @@ const Settings: React.FC = () => {
     try {
       setIsLoading(true);
       
-      if (window.gapi && window.gapi.auth2) {
-        const authInstance = window.gapi.auth2.getAuthInstance();
-        if (authInstance) {
-          await authInstance.signOut();
-          
-          // Update connection status in Supabase
-          await supabase
-            .from('user_settings')
-            .update({
-              is_google_connected: false,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', user.id);
-            
-          toast.success("Disconnected from Google Calendar");
-          setIsGoogleConnected(false);
-        }
+      const token = window.gapi.client.getToken();
+      if (token !== null) {
+        window.google.accounts.oauth2.revoke(token.access_token);
+        window.gapi.client.setToken('');
       }
+      
+      // Update connection status in Supabase
+      await supabase
+        .from('user_settings')
+        .update({
+          is_google_connected: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+        
+      toast.success("Disconnected from Google Calendar");
+      setIsGoogleConnected(false);
     } catch (error) {
       console.error("Error disconnecting from Google:", error);
       toast.error("Failed to disconnect Google Calendar");
@@ -285,7 +388,7 @@ const Settings: React.FC = () => {
                 
                 {!isGoogleConnected && (
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleGoogleConnect)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(handleGoogleInit)} className="space-y-4">
                       <div className="rounded-md bg-amber-50 p-4 mb-4">
                         <div className="flex">
                           <Info className="h-5 w-5 text-amber-800 mr-2" />
@@ -339,12 +442,24 @@ const Settings: React.FC = () => {
                         )}
                       />
                       
-                      <Button 
-                        type="submit"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? "Connecting..." : "Connect Google Calendar"}
-                      </Button>
+                      <div className="flex flex-col gap-4">
+                        <Button 
+                          type="submit"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? "Saving..." : "Save Credentials"}
+                        </Button>
+                        
+                        {gapiInited && gisInited && (
+                          <Button 
+                            type="button"
+                            onClick={handleGoogleConnect}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "Connecting..." : "Connect Google Calendar"}
+                          </Button>
+                        )}
+                      </div>
                     </form>
                   </Form>
                 )}

@@ -5,17 +5,19 @@ interface Window {
     client: {
       init: (config: {
         apiKey: string;
-        clientId: string;
-        scope: string;
+        clientId?: string;
+        scope?: string;
         discoveryDocs?: string[];
       }) => Promise<void>;
+      getToken: () => { access_token: string } | null;
+      setToken: (token: string | null) => void;
       calendar: {
         events: {
           list: (params: any) => Promise<any>;
         };
       };
     };
-    auth2: {
+    auth2?: {
       getAuthInstance: () => {
         isSignedIn: {
           get: () => boolean;
@@ -32,6 +34,18 @@ interface Window {
             };
           };
         };
+      };
+    };
+  };
+  google: {
+    accounts: {
+      oauth2: {
+        initTokenClient: (config: {
+          client_id: string;
+          scope: string;
+          callback: (response: any) => void;
+        }) => any;
+        revoke: (token: string) => void;
       };
     };
   };
