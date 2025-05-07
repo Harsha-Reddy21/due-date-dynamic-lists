@@ -7,14 +7,14 @@ export interface Task {
   parentId: string | null;
   title: string;
   description: string;
-  dueDate: string; // ISO format date string
+  dueDate: string; // ISO format date string (includes time)
   weight: Weight;
   priorityScore?: number; // Computed dynamically
   createdAt: string;
   updatedAt: string;
   children?: Task[]; // For nested structure
-  completed: boolean; // Added this property
-  calendarEventId?: string; // Added for Google Calendar integration
+  completed: boolean;
+  calendarEventId?: string; // For Google Calendar integration
 }
 
 export interface TaskWithPriority extends Task {

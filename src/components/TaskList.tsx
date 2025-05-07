@@ -1,9 +1,9 @@
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTaskContext } from "@/contexts/TaskContext";
 import TaskCard from "./TaskCard";
 import { TaskWithPriority } from "@/types/task";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, SortAsc, SortDesc } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { SortableTaskItem } from "./SortableTaskItem";
@@ -11,7 +11,6 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import TaskForm from "./TaskForm";
-import { useState } from "react";
 
 interface TaskListProps {
   tasks?: TaskWithPriority[];
@@ -28,6 +27,7 @@ const TaskList: React.FC<TaskListProps> = ({
 }) => {
   const { tasks: allTasks, isLoading, updateTaskOrder } = useTaskContext();
   const [isAddSubtaskDialogOpen, setIsAddSubtaskDialogOpen] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -38,8 +38,12 @@ const TaskList: React.FC<TaskListProps> = ({
   
   const tasksToRender = tasks || allTasks.filter(task => task.parentId === parentId);
   
-  // Sort tasks by priority score (highest first)
-  const sortedTasks = [...tasksToRender].sort((a, b) => b.priorityScore - a.priorityScore);
+  // Sort tasks by priority score (based on sort direction)
+  const sortedTasks = [...tasksToRender].sort((a, b) => {
+    return sortDirection === 'desc' 
+      ? b.priorityScore - a.priorityScore 
+      : a.priorityScore - b.priorityScore;
+  });
   
   // Handle drag end event
   const handleDragEnd = (event: DragEndEvent) => {
@@ -64,6 +68,11 @@ const TaskList: React.FC<TaskListProps> = ({
   // Handle closing the dialog
   const handleDialogClose = () => {
     setIsAddSubtaskDialogOpen(null);
+  };
+
+  // Toggle sort direction
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
   };
   
   if (isLoading) {
@@ -90,6 +99,9 @@ const TaskList: React.FC<TaskListProps> = ({
       </div>
     );
   }
+
+  // Only show sort button at the root level
+  const shouldShowSortButton = nestingLevel === 0;
   
   return (
     <DndContext
@@ -98,10 +110,29 @@ const TaskList: React.FC<TaskListProps> = ({
       onDragEnd={handleDragEnd}
       modifiers={[restrictToVerticalAxis]}
     >
+      <div className="space-y-2 mb-4">
+        {shouldShowSortButton && (
+          <div className="flex justify-end">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={toggleSortDirection}
+              className="flex items-center gap-1 text-xs"
+            >
+              Sort by priority {sortDirection === 'desc' ? (
+                <SortDesc className="h-3 w-3" />
+              ) : (
+                <SortAsc className="h-3 w-3" />
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+      
       <SortableContext items={sortedTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-4" style={{ paddingLeft: nestingLevel > 0 ? `${nestingLevel * 16}px` : '0' }}>
+        <div className="space-y-4">
           {sortedTasks.map((task) => (
-            <div key={task.id}>
+            <div key={task.id} className={nestingLevel > 0 ? `pl-${nestingLevel * 4} border-l-2 border-gray-100` : ''}>
               <SortableTaskItem id={task.id}>
                 <TaskCard 
                   task={task} 
@@ -122,12 +153,14 @@ const TaskList: React.FC<TaskListProps> = ({
               
               {/* Render child tasks recursively if they exist */}
               {task.children && task.children.length > 0 && (
-                <TaskList
-                  tasks={task.children as TaskWithPriority[]}
-                  showScore={showScore}
-                  nestingLevel={nestingLevel + 1}
-                  parentId={task.id}
-                />
+                <div className="mt-2">
+                  <TaskList
+                    tasks={task.children as TaskWithPriority[]}
+                    showScore={showScore}
+                    nestingLevel={nestingLevel + 1}
+                    parentId={task.id}
+                  />
+                </div>
               )}
             </div>
           ))}

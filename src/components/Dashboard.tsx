@@ -148,7 +148,7 @@ const Dashboard: React.FC = () => {
             </CardHeader>
             <Separator className="my-4" />
             <CardContent className="px-0 pb-0">
-              <Tabs value={activeView}>
+              <Tabs defaultValue="calendar" value={activeView}>
                 <TabsContent value="list" className="mt-0">
                   <TaskList tasks={rootTasks} showScore={true} />
                 </TabsContent>

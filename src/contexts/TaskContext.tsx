@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Task, TaskWithPriority, Weight } from "@/types/task";
 import { calculatePriorityScores, getTopPriorityTasks, calculateDaysUntilDue } from "@/lib/priority-utils";
@@ -18,6 +18,7 @@ interface TaskContextProps {
   getTaskChildren: (parentId: string) => TaskWithPriority[];
   getRootTasks: () => TaskWithPriority[];
   updateTaskOrder: (newOrder: TaskWithPriority[], parentId: string | null) => void;
+  markNotificationsAsSeen: () => void;
 }
 
 const TaskContext = createContext<TaskContextProps | undefined>(undefined);
@@ -29,6 +30,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [topTasks, setTopTasks] = useState<TaskWithPriority[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notificationsShown, setNotificationsShown] = useState(false);
+  
+  // For tracking if notifications have been seen
+  const [notificationsSeen, setNotificationsSeen] = useState(true);
+  
+  // Track initial load
+  const initialLoadRef = useRef(true);
   
   // Check for due tasks and show notifications
   useEffect(() => {
@@ -52,7 +59,16 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return dueDate.getTime() === tomorrow.getTime();
       });
       
-      // We're removing the notifications from here as they will be handled in the Layout component only once
+      // Only mark as unseen if we actually have notifications to show
+      // and this isn't the initial load
+      if ((dueTodayTasks.length > 0 || dueTomorrowTasks.length > 0) && !initialLoadRef.current) {
+        setNotificationsSeen(false);
+      }
+      
+      // After first load, set initialLoad to false
+      if (initialLoadRef.current) {
+        initialLoadRef.current = false;
+      }
     }
   }, [flatTasks]);
   
@@ -73,6 +89,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data, error } = await supabase
           .from('tasks')
           .select('*')
+          .eq('user_id', user.id) // Only fetch tasks for this user
           .order('created_at', { ascending: false });
           
         if (error) {
@@ -90,6 +107,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
           weight: task.weight as Weight,
           createdAt: task.created_at,
           updatedAt: task.updated_at,
+          calendarEventId: task.calendar_event_id,
           // The completed property exists in the database schema now that we've added it
           completed: Boolean(task.completed),
         }));
@@ -111,7 +129,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public',
-        table: 'tasks'
+        table: 'tasks',
+        filter: `user_id=eq.${user.id}` // Only listen for this user's tasks
       }, fetchTasks)
       .subscribe();
       
@@ -157,6 +176,11 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return rootTasks;
   };
   
+  // Mark notifications as seen
+  const markNotificationsAsSeen = () => {
+    setNotificationsSeen(true);
+  };
+  
   // Add new task
   const addTask = async (task: Omit<Task, "id" | "userId" | "createdAt" | "updatedAt" | "priorityScore">) => {
     if (!user) {
@@ -175,7 +199,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             description: task.description,
             due_date: task.dueDate,
             weight: task.weight,
-            completed: task.completed || false
+            completed: task.completed || false,
+            calendar_event_id: task.calendarEventId
           }
         ])
         .select()
@@ -211,6 +236,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.weight !== undefined) dbUpdates.weight = updates.weight;
       if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId;
       if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
+      if (updates.calendarEventId !== undefined) dbUpdates.calendar_event_id = updates.calendarEventId;
       
       const { error } = await supabase
         .from('tasks')
@@ -241,10 +267,14 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const taskToDelete = flatTasks.find(t => t.id === taskId);
     
     try {
+      // First, get all subtasks recursively
+      const subtaskIds = getSubtaskIds(taskId);
+      
+      // Delete the task and all its subtasks
       const { error } = await supabase
         .from('tasks')
         .delete()
-        .eq('id', taskId);
+        .in('id', [taskId, ...subtaskIds]);
       
       if (error) throw error;
       
@@ -259,6 +289,20 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message
       });
     }
+  };
+  
+  // Helper function to get all subtask IDs recursively
+  const getSubtaskIds = (parentId: string): string[] => {
+    const directChildren = flatTasks.filter(task => task.parentId === parentId);
+    
+    if (directChildren.length === 0) {
+      return [];
+    }
+    
+    const directChildrenIds = directChildren.map(child => child.id);
+    const nestedChildrenIds = directChildrenIds.flatMap(childId => getSubtaskIds(childId));
+    
+    return [...directChildrenIds, ...nestedChildrenIds];
   };
   
   // Get task by ID
@@ -325,7 +369,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getTaskById,
       getTaskChildren,
       getRootTasks,
-      updateTaskOrder
+      updateTaskOrder,
+      markNotificationsAsSeen
     }}>
       {children}
     </TaskContext.Provider>

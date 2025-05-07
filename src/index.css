@@ -1,3 +1,4 @@
+
 /* Import Inter font - moved to top */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -94,19 +95,50 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold tracking-tight;
+    @apply font-medium tracking-tight;
   }
   
   h1 {
-    @apply text-3xl lg:text-4xl;
-  }
-  
-  h2 {
     @apply text-2xl lg:text-3xl;
   }
   
-  h3 {
+  h2 {
     @apply text-xl lg:text-2xl;
+  }
+  
+  h3 {
+    @apply text-lg lg:text-xl;
+  }
+  
+  /* Improved typography and scale */
+  p {
+    @apply text-sm text-gray-700;
+    line-height: 1.6;
+  }
+  
+  .text-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+  
+  .text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  .text-base {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+  
+  .text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+  
+  /* Task indentation */
+  .task-nested {
+    @apply pl-4 border-l-2 border-gray-100;
   }
 }
 
@@ -129,5 +161,22 @@
   
   .priority-5 {
     @apply bg-[hsl(var(--priority-5))];
+  }
+  
+  /* Task and subtask styling */
+  .task-card {
+    @apply border border-gray-200 rounded-lg p-3 bg-white hover:shadow-sm transition-all;
+  }
+  
+  .task-title {
+    @apply font-medium text-base text-gray-800;
+  }
+  
+  .task-description {
+    @apply text-xs text-gray-600 mt-1;
+  }
+  
+  .task-meta {
+    @apply flex items-center gap-2 text-xs mt-2;
   }
 }

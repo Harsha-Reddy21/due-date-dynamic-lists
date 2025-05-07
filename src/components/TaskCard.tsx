@@ -1,6 +1,7 @@
+
 import React, { useState } from "react";
 import { Task } from "@/types/task";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isToday, isTomorrow } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { formatPriorityScore } from "@/lib/priority-utils";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import {
   Calendar as CalendarIcon, 
   Edit, 
   Plus, 
-  Trash2 
+  Trash2,
+  Clock
 } from "lucide-react";
 import {
   Dialog,
@@ -45,6 +47,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
   const formattedDueDate = formatDistanceToNow(new Date(task.dueDate), {
     addSuffix: true
   });
+
+  // Format time from due date
+  const formattedTime = format(new Date(task.dueDate), "h:mm a");
 
   // Get the priority color based on the weight
   const getPriorityColor = (weight: number) => {
@@ -98,28 +103,35 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, showScore = true, onAddSubtas
     <div className="flex flex-col p-4 border rounded-lg shadow-sm bg-white hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-2">
         <div>
-          <h3 className="font-medium">{task.title}</h3>
-          <p className="text-sm text-gray-500 mt-1">{task.description}</p>
+          <h3 className="font-medium text-base text-gray-800">{task.title}</h3>
+          <p className="text-sm text-gray-600 mt-1">{task.description}</p>
         </div>
         
         <div className="flex gap-2">
           {showScore && task.priorityScore && (
-            <Badge variant="outline" className="bg-primary-50 text-primary font-medium">
+            <Badge variant="outline" className="bg-primary-50 text-primary font-medium text-xs">
               Score: {formatPriorityScore(task.priorityScore)}
             </Badge>
           )}
           
-          <Badge className={getPriorityColor(task.weight)}>
+          <Badge className={`text-xs ${getPriorityColor(task.weight)}`}>
             Priority: {task.weight}
           </Badge>
         </div>
       </div>
       
       <div className="flex justify-between items-center mt-2">
-        <Badge variant="outline" className={getDueDateColor()}>
-          <CalendarIcon className="mr-1 h-3 w-3" />
-          {formattedDueDate}
-        </Badge>
+        <div className="flex gap-2">
+          <Badge variant="outline" className={`text-xs ${getDueDateColor()}`}>
+            <CalendarIcon className="mr-1 h-3 w-3" />
+            {formattedDueDate}
+          </Badge>
+          
+          <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+            <Clock className="mr-1 h-3 w-3" />
+            {formattedTime}
+          </Badge>
+        </div>
         
         <div className="flex gap-2">
           <Button
