@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Calendar, CheckCircle, AlertCircle, RefreshCw, LogOut, Plus } from 'lucide-react';
@@ -15,6 +14,14 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
+// To solve type errors, we need to declare these variables before referencing them
+declare global {
+  interface Window {
+    gapi: any;
+    google: any;
+  }
+}
+
 const GoogleCalendarIntegration = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -26,9 +33,10 @@ const GoogleCalendarIntegration = () => {
   const [events, setEvents] = useState<any[]>([]);
   const { tasks } = useTaskContext();
   
-  const gapi = window.gapi;
-  const google = window.google;
-  let tokenClient: any;
+  // These are set up as variables to be used throughout the component
+  const [gapi, setGapi] = useState<any>(null);
+  const [google, setGoogle] = useState<any>(null);
+  const [tokenClient, setTokenClient] = useState<any>(null);
   
   useEffect(() => {
     // Load the Google API client
@@ -62,7 +70,8 @@ const GoogleCalendarIntegration = () => {
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      gapi.load('client', initializeGapiClient);
+      setGapi(window.gapi);
+      window.gapi.load('client', initializeGapiClient);
     };
     document.body.appendChild(script);
     
@@ -70,13 +79,16 @@ const GoogleCalendarIntegration = () => {
     gisScript.src = 'https://accounts.google.com/gsi/client';
     gisScript.async = true;
     gisScript.defer = true;
-    gisScript.onload = initializeGisClient;
+    gisScript.onload = () => {
+      setGoogle(window.google);
+      initializeGisClient();
+    };
     document.body.appendChild(gisScript);
   };
   
   const initializeGapiClient = async () => {
     try {
-      await gapi.client.init({
+      await window.gapi.client.init({
         apiKey: API_KEY,
         discoveryDocs: [DISCOVERY_DOC],
       });
@@ -84,7 +96,7 @@ const GoogleCalendarIntegration = () => {
       // Check if we have a stored token and set it
       const accessToken = localStorage.getItem('google_access_token');
       if (accessToken) {
-        gapi.client.setToken({
+        window.gapi.client.setToken({
           access_token: accessToken,
         });
       }
@@ -96,11 +108,18 @@ const GoogleCalendarIntegration = () => {
   
   const initializeGisClient = () => {
     try {
-      tokenClient = google.accounts.oauth2.initTokenClient({
+      if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+        console.error('Google Identity Services not loaded yet');
+        return;
+      }
+      
+      const tokenClientInstance = window.google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: handleTokenResponse,
       });
+      
+      setTokenClient(tokenClientInstance);
     } catch (err) {
       console.error('Error initializing GIS client:', err);
       setError('Failed to initialize Google Identity Services');
@@ -115,7 +134,7 @@ const GoogleCalendarIntegration = () => {
     }
     
     // Store the token
-    const token = gapi.client.getToken();
+    const token = window.gapi.client.getToken();
     if (token) {
       // Calculate expires_at based on current time + expires_in
       const expiresAt = new Date().getTime() + (token.expires_in || 3600) * 1000;
@@ -160,20 +179,30 @@ const GoogleCalendarIntegration = () => {
     setIsLoading(true);
     
     try {
-      const token = gapi.client.getToken();
-      if (token) {
-        google.accounts.oauth2.revoke(token.access_token, () => {
-          gapi.client.setToken('');
+      if (window.gapi && window.google) {
+        const token = window.gapi.client.getToken();
+        if (token) {
+          window.google.accounts.oauth2.revoke(token.access_token, () => {
+            window.gapi.client.setToken('');
+            localStorage.removeItem('google_access_token');
+            localStorage.removeItem('google_expires_at');
+            localStorage.removeItem('google_last_sync');
+            setIsConnected(false);
+            setLastSynced(null);
+            toast.success('Disconnected from Google Calendar');
+            setIsLoading(false);
+          });
+        } else {
+          // If no token, just clear everything
           localStorage.removeItem('google_access_token');
           localStorage.removeItem('google_expires_at');
           localStorage.removeItem('google_last_sync');
           setIsConnected(false);
           setLastSynced(null);
-          toast.success('Disconnected from Google Calendar');
           setIsLoading(false);
-        });
+        }
       } else {
-        // If no token, just clear everything
+        // If API not loaded, just clear everything
         localStorage.removeItem('google_access_token');
         localStorage.removeItem('google_expires_at');
         localStorage.removeItem('google_last_sync');
@@ -189,8 +218,13 @@ const GoogleCalendarIntegration = () => {
   };
 
   const fetchEvents = async () => {
+    if (!window.gapi || !window.gapi.client || !window.gapi.client.calendar) {
+      console.error('Google Calendar API not loaded yet');
+      return;
+    }
+    
     try {
-      const response = await gapi.client.calendar.events.list({
+      const response = await window.gapi.client.calendar.events.list({
         'calendarId': 'primary',
         'timeMin': new Date().toISOString(),
         'showDeleted': false,
@@ -208,7 +242,7 @@ const GoogleCalendarIntegration = () => {
   };
 
   const handleSyncTasks = async () => {
-    if (!isConnected) {
+    if (!isConnected || !window.gapi || !window.gapi.client || !window.gapi.client.calendar) {
       toast.error('Please connect to Google Calendar first');
       return;
     }
@@ -256,7 +290,7 @@ const GoogleCalendarIntegration = () => {
           };
           
           // Add the event
-          const response = await gapi.client.calendar.events.insert({
+          const response = await window.gapi.client.calendar.events.insert({
             'calendarId': 'primary',
             'resource': event,
           });
