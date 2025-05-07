@@ -96,7 +96,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         // Convert the database format to our app's Task format
-        const formattedTasks: Task[] = data.map(task => ({
+        const formattedTasks: Task[] = data.map((task: any) => ({
           id: task.id,
           userId: task.user_id,
           parentId: task.parent_id,
