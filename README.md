@@ -1,73 +1,43 @@
-# Welcome to your Lovable project
+# Due Date Dynamic Lists
 
-## Project info
+A modern web application for managing dynamic lists with due dates.
 
-**URL**: https://lovable.dev/projects/fbc4a318-aaa7-4f83-bbdb-8f88a3d0928a
+Production URL: https://due-date-dynamic-lists.lovable.app/
 
-## How can I edit this code?
+## Tech Stack
 
-There are several ways of editing your application.
+This project leverages modern web technologies:
 
-**Use Lovable**
+- **Frontend Framework**: React
+- **Build Tool**: Vite
+- **Type Safety**: TypeScript
+- **UI Components**: shadcn/ui
+- **Styling**: Tailwind CSS
+- **Development Environment**: Lovable
+- **Database**: Supabase
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/fbc4a318-aaa7-4f83-bbdb-8f88a3d0928a) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
+## Getting Started
 
-**Use your preferred IDE**
+### Prerequisites
+- Node.js & npm (Recommended installation via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Clone the repository
+2. Navigate to the project directory
+3. Install dependencies: `npm install`
+4. Start the development server: `npm run dev`
 
-Follow these steps:
+## Deployment
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+The project can be deployed through Lovable's platform. Simply:
+1. Open the project in Lovable
+2. Click on Share -> Publish
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## Custom Domain
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/fbc4a318-aaa7-4f83-bbdb-8f88a3d0928a) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Connect a custom domain through Lovable's project settings:
+1. Navigate to Project > Settings > Domains
+2. Click "Connect Domain"
+3. Follow the [custom domain setup guide](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
